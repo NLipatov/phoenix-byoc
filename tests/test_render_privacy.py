@@ -37,20 +37,30 @@ record = {{'name':name, 'argv':sys.argv[1:], 'dirMode':stat.S_IMODE(render.stat(
           'staged':len(files), 'stagedMode':stat.S_IMODE(files[0].stat().st_mode) if files else None,
           'published':(render/'all.yaml').exists(),
           'logs':[(x.name, stat.S_IMODE(x.stat().st_mode)) for x in render.glob('.render.*/*.log')]}}
-with open(os.environ['TEST_OBSERVED'],'a') as output: output.write(json.dumps(record)+'\\n')
+def observe():
+    with open(os.environ['TEST_OBSERVED'],'a') as output: output.write(json.dumps(record)+'\\n')
 if name == 'helmfile':
     assert sys.argv[1:] == ['template', '--skip-deps', '--quiet']
+    observe()
     sys.stdout.write('private-render\\n')
     sys.stdout.flush()
     print(os.environ['TEST_CANARY'], file=sys.stderr)
     if os.environ['TEST_MODE'] == 'partial': sys.exit(29)
+    if os.environ['TEST_MODE'] == 'redirect-fail':
+        log = files[0].parent / 'kubeconform.log'
+        log.unlink()
+        log.symlink_to(repo / 'missing-parent' / 'log')
     if os.environ['TEST_MODE'] == 'signal':
         os.kill(os.getppid(), signal.SIGTERM)
         time.sleep(0.2)
 else:
-    assert sys.argv[1:] == ['-kubernetes-version','1.32.0','-strict','-summary',
-                            '-ignore-missing-schemas',str(files[0])]
-    assert files[0].read_text() == 'private-render\\n'
+    manifest = Path(sys.argv[-1])
+    assert sys.argv[1:-1] == ['-kubernetes-version','1.32.0','-strict','-summary',
+                              '-ignore-missing-schemas']
+    assert manifest in [render / 'all.yaml', *files]
+    assert manifest.read_text() == 'private-render\\n'
+    record['validationOutcome'] = 'reject:31' if os.environ['TEST_MODE'] == 'kube-fail' else 'accept'
+    observe()
     print(os.environ['TEST_CANARY'], file=sys.stderr)
     if os.environ['TEST_MODE'] == 'kube-fail': sys.exit(31)
 '''.format(python=sys.executable)
@@ -93,6 +103,7 @@ else:
         (self.repo / '.rendered/all.yaml').write_text('stale')
         result = self.run_render('kube-fail')
         self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.records()[-1]['validationOutcome'], 'reject:31')
         self.assert_clean()
         self.assertNotIn(CANARY, result.stdout + result.stderr)
         self.assertEqual([row['name'] for row in self.records()], ['helmfile', 'kubeconform'])
@@ -101,6 +112,7 @@ else:
     def test_private_modes_and_publish_after_optional_check(self):
         result = self.run_render()
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.records()[-1]['validationOutcome'], 'accept')
         self.assertEqual((self.repo / '.rendered/all.yaml').read_text(), 'private-render\n')
         self.assertEqual(stat.S_IMODE((self.repo / '.rendered').stat().st_mode), 0o700)
         self.assertEqual(stat.S_IMODE((self.repo / '.rendered/all.yaml').stat().st_mode), 0o600)
@@ -110,6 +122,18 @@ else:
             self.assertTrue(all(mode == 0o600 for _, mode in row['logs']))
         self.assertEqual(list((self.repo / '.rendered').glob('.render.*')), [])
         self.assertNotIn(CANARY, result.stdout + result.stderr)
+
+    def test_redirection_open_failure_withholds_sensitive_path(self):
+        destination = self.base / ('source-' + CANARY)
+        self.repo.rename(destination)
+        self.repo = destination
+        self.env['TEST_REPO'] = str(self.repo)
+        result = self.run_render('redirect-fail')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn(CANARY, result.stdout + result.stderr)
+        self.assertEqual(result.stderr, 'ERROR: render_kubeconform_failed\n')
+        self.assertEqual([row['name'] for row in self.records()], ['helmfile'])
+        self.assert_clean()
 
     def test_signal_cleans_staging_and_prior_output(self):
         (self.repo / '.rendered').mkdir()

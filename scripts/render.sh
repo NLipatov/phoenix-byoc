@@ -49,17 +49,22 @@ if ! {
   fail render_output_unavailable
 fi
 
-if ! (
-  cd "$repo_root"
-  HELMFILE_CACHE_HOME="$cache_dir" helmfile template --skip-deps --quiet
-) >"$staging/all.yaml" 2>"$staging/helmfile.log"; then
+# Protect Bash's own redirection-open diagnostics as well as tool stderr.
+if ! {
+  (
+    cd "$repo_root"
+    HELMFILE_CACHE_HOME="$cache_dir" helmfile template --skip-deps --quiet
+  ) >"$staging/all.yaml" 2>"$staging/helmfile.log"
+} 2>/dev/null; then
   fail render_helmfile_failed
 fi
 
 if command -v kubeconform >/dev/null 2>&1; then
-  if ! kubeconform -kubernetes-version 1.32.0 -strict -summary \
+  if ! {
+    kubeconform -kubernetes-version 1.32.0 -strict -summary \
       -ignore-missing-schemas "$staging/all.yaml" \
-      >"$staging/kubeconform.log" 2>&1; then
+      >"$staging/kubeconform.log" 2>&1
+  } 2>/dev/null; then
     fail render_kubeconform_failed
   fi
 fi
