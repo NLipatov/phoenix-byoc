@@ -208,3 +208,201 @@ def load_contract(root: Path) -> ContractBundle:
 
 def verify_contract_files(root: Path) -> None:
     load_contract(root)
+
+
+@dataclass(frozen=True)
+class SecretKeyRef:
+    name: str
+    key: str
+
+
+@dataclass(frozen=True)
+class ValidatedInputs:
+    enabled: bool
+    plain_env: Dict[str, str]
+    secret_refs: Dict[str, SecretKeyRef]
+    platform_names: tuple[str, ...]
+    required_capabilities: tuple[tuple[str, str, str], ...]
+
+
+# Route identity is read from the pinned producer's fixed discriminators;
+# APIs and required capability tuples come from its pinned capability records.
+# This is not another route catalog or a schema validation interpreter.
+_HEADER_TOKEN = re.compile(r"[!#$%&'*+.^_`|~0-9A-Za-z-]+\Z")
+_HEADER_REF = re.compile(r'\$([A-Z][A-Z0-9_]*)\Z')
+_PROTECTED_HEADERS = frozenset((
+    'authorization', 'proxy-authorization', 'x-api-key', 'api-key',
+    'x-portkey-api-key', 'host', 'cookie', 'anthropic-version',
+    'anthropic-beta', 'api-version',
+))
+
+
+def _schema_helm(config, bundle):
+    """Use Helm's real schema validation in a dependency-free private chart.
+
+    Neither user-controlled keys nor Helm diagnostics leave this function.
+    """
+    import subprocess
+    import tempfile
+    import shutil
+    with tempfile.TemporaryDirectory(prefix='connection-validation-') as folder:
+        os.chmod(folder, 0o700)
+        base = Path(folder)
+        chart = base / 'chart'
+        (chart / 'templates').mkdir(mode=0o700, parents=True)
+        def private_file(path, data):
+            with os.fdopen(os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600), 'wb') as stream:
+                stream.write(data)
+        private_file(chart / 'Chart.yaml', b'apiVersion: v2\nname: connection-validation\nversion: 0.1.0\n')
+        private_file(chart / 'templates' / 'noop.yaml', b'{{- /* validation only: no resources */ -}}\n')
+        # The owner schema is copied byte-for-byte, with no local adapter.
+        shutil.copyfile(bundle.schema, chart / 'values.schema.json')
+        os.chmod(chart / 'values.schema.json', 0o600)
+        private_file(base / 'input.json', json.dumps(config, ensure_ascii=False,
+                                                      separators=(',', ':'), allow_nan=False).encode('utf-8'))
+        env = {'PATH': os.environ.get('PATH', '/usr/bin:/bin'), 'HOME': folder,
+               'KUBECONFIG': '/dev/null', 'HELM_CONFIG_HOME': folder,
+               'HELM_CACHE_HOME': folder, 'HELM_DATA_HOME': folder}
+        try:
+            process = subprocess.run(
+                ['helm', 'template', 'connection-validation', str(chart), '--values', str(base / 'input.json')],
+                env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30, check=False)
+        except (OSError, subprocess.TimeoutExpired):
+            raise ContractError('connection_validation_unavailable', '/llm') from None
+        if process.returncode:
+            raise ContractError('connection_schema_invalid', '/llm' if 'llm' in config else '/agentInputDelivery')
+
+
+def _transport_json(values):
+    # Exact deterministic UTF-8 representation of the non-secret authoring env.
+    return json.dumps(values, ensure_ascii=False, sort_keys=True,
+                      separators=(',', ':'), allow_nan=False).encode('utf-8')
+
+
+def validate_connections(config: dict, bundle: ContractBundle) -> ValidatedInputs:
+    """Validate authoring, not deployment identity, Secret bytes or native capability."""
+    if not isinstance(config, dict) or any(not isinstance(key, str) for key in config):
+        raise ContractError('connection_schema_invalid', '/llm')
+    if set(config) - {'llm', 'agentInputDelivery'}:
+        raise ContractError('connection_schema_invalid', '/llm')
+    generic = config.get('agentInputDelivery')
+    # The generic PHOENIX_LLM_* error is explicitly distinct from schema errors.
+    if isinstance(generic, dict):
+        for origin in ('env', 'secretEnv'):
+            mapping = generic.get(origin)
+            if isinstance(mapping, dict) and any(isinstance(k, str) and k.startswith('PHOENIX_LLM_') for k in mapping):
+                raise ContractError('llm_authoring_required', '/agentInputDelivery/' + origin)
+    if config:
+        try:
+            _schema_helm(config, bundle)
+        except (ValueError, TypeError, UnicodeError, RecursionError):
+            raise ContractError('connection_schema_invalid', '/llm') from None
+    if not config:
+        return ValidatedInputs(False, {}, {}, (), ())
+    # Helm 3.18's gojsonschema treats a numeric 1 as equal to the string const
+    # "1". Enforce the one explicitly typed protocol version after real Helm.
+    if 'llm' in config and (not isinstance(config['llm'], dict) or
+                            type(config['llm'].get('CONFIG_VERSION')) is not str or
+                            config['llm']['CONFIG_VERSION'] != '1'):
+        raise ContractError('connection_schema_invalid', '/llm')
+    llm = config.get('llm', {})
+    generic = generic if generic is not None else {}
+    # Schema was checked above: no defaults for malformed supplied null/empty objects.
+    enabled = generic.get('enabled', False)
+    llm_env = llm.get('env', {})
+    llm_secrets = llm.get('secretEnv', {})
+    generic_env = generic.get('env', {})
+    generic_secrets = generic.get('secretEnv', {})
+    platform = tuple(llm.get('platformEnv', ()))
+    for left, right, path in (
+        (llm_env, llm_secrets, '/llm/secretEnv'),
+        (generic_env, generic_secrets, '/agentInputDelivery/secretEnv'),
+        (llm_env, generic_env, '/agentInputDelivery/env'),
+        (llm_secrets, generic_secrets, '/agentInputDelivery/secretEnv'),
+        (llm_env, generic_secrets, '/agentInputDelivery/secretEnv'),
+        (generic_env, llm_secrets, '/llm/secretEnv'),
+    ):
+        if left.keys() & right.keys():
+            raise ContractError('destination_collision', path)
+    destinations = set(llm_env) | set(llm_secrets) | set(generic_env) | set(generic_secrets)
+    if destinations.intersection(platform):
+        raise ContractError('destination_collision', '/llm/platformEnv')
+    plain = dict(generic_env)
+    plain.update(llm_env)
+    secrets = {name: SecretKeyRef(**ref) for name, ref in generic_secrets.items()}
+    secrets.update({name: SecretKeyRef(**ref) for name, ref in llm_secrets.items()})
+    capabilities = json.loads(bundle.capabilities.read_bytes())['entries']
+    allowed_tuples = {(entry['route'], entry['api'], entry['authMode']) for entry in capabilities}
+    schema = json.loads(bundle.schema.read_bytes())
+    families = {}
+    for route in {entry['route'] for entry in capabilities}:
+        discriminators = schema['definitions']['llmConnectionsV1_' + route]['allOf'][1]['properties']
+        key = (discriminators['PLATFORM']['const'], discriminators['PUBLISHER']['const'])
+        if key in families:
+            raise ContractError('connection_contract_invalid', '/llm')
+        families[key] = route
+    required = set()
+    if 'llm' in config:
+        plain['PHOENIX_LLM_CONFIG_VERSION'] = '1'
+        connections = llm['connections']
+        plain['PHOENIX_LLM_CONNECTIONS'] = ','.join(sorted(connections))
+        for name, connection in sorted(connections.items()):
+            route = families.get((connection['PLATFORM'], connection['PUBLISHER']))
+            if route is None:
+                raise ContractError('connection_schema_invalid', '/llm/connections')
+            candidate_apis = {api for family, api, auth in allowed_tuples
+                              if family == route and auth == connection['AUTH_MODE']}
+            if 'API' in connection:
+                api = connection['API']
+            elif len(candidate_apis) == 1:
+                api = next(iter(candidate_apis))
+            else:
+                raise ContractError('connection_schema_invalid', '/llm/connections')
+            capability = (route, api, connection['AUTH_MODE'])
+            if capability not in allowed_tuples:
+                raise ContractError('connection_schema_invalid', '/llm/connections')
+            required.add(capability)
+            path = '/llm/connections'  # Never reflect attacker-chosen property names.
+            if 'API_KEY_ENV' in connection and connection['API_KEY_ENV'] not in llm_secrets:
+                raise ContractError('secret_reference_required', path + '/API_KEY_ENV')
+            refs = connection.get('NATIVE_ENV_REFS_JSON', {})
+            for destination in refs.values():
+                if destination not in plain and destination not in platform:
+                    raise ContractError('source_required', path + '/NATIVE_ENV_REFS_JSON')
+            headers = connection.get('HEADERS_JSON', {})
+            seen = set()
+            for header, value in headers.items():
+                lower = header.lower()
+                if lower in seen:
+                    raise ContractError('header_case_duplicate', path + '/HEADERS_JSON')
+                seen.add(lower)
+                if not _HEADER_TOKEN.fullmatch(header) or lower in _PROTECTED_HEADERS:
+                    raise ContractError('header_invalid', path + '/HEADERS_JSON')
+                ref = _HEADER_REF.fullmatch(value)
+                if ref:
+                    destination = ref.group(1)
+                    if destination not in plain and destination not in secrets and destination not in platform:
+                        raise ContractError('source_required', path + '/HEADERS_JSON')
+                    if destination in plain and not _header_literal(plain[destination]):
+                        raise ContractError('header_invalid', path + '/HEADERS_JSON')
+                elif not _header_literal(value):
+                    raise ContractError('header_invalid', path + '/HEADERS_JSON')
+            prefix = 'PHOENIX_LLM_' + name.upper() + '_'
+            for field, value in connection.items():
+                if field in ('NATIVE_ENV_REFS_JSON', 'HEADERS_JSON'):
+                    plain[prefix + field] = _transport_json(value).decode('utf-8')
+                else:
+                    plain[prefix + field] = value
+            plain[prefix + 'API'] = api
+    if len(plain) > 256:
+        raise ContractError('env_count_limit', '/agentInputDelivery/env')
+    if len(secrets) > 128:
+        raise ContractError('secret_count_limit', '/agentInputDelivery/secretEnv')
+    if any(len(value.encode('utf-8')) > 65536 for value in plain.values()) or len(_transport_json(plain)) > 65536:
+        raise ContractError('env_size_limit', '/agentInputDelivery/env')
+    return ValidatedInputs(enabled, plain, secrets, tuple(sorted(platform)), tuple(sorted(required)))
+
+
+def _header_literal(value):
+    return (bool(value) and not any(ord(ch) < 32 or 127 <= ord(ch) <= 159 for ch in value)
+            and '$' not in value and '!' not in value and '`' not in value)
