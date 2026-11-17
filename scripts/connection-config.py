@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Offline, safe stdin-JSON authoring check; never reads Kubernetes Secret values."""
+"""Offline authoring checks; YAML files are local inputs, not Kubernetes Secrets.
+
+check-yaml RELEASE DEFAULTS VALUES SECRETS checks raw layers then effective authoring.
+Existing check/references commands continue to consume stdin JSON only.
+"""
 import json
 from pathlib import Path
 import sys
@@ -19,6 +23,16 @@ def _unique(pairs):
 
 
 def main():
+    if len(sys.argv) == 6 and sys.argv[1] == 'check-yaml':
+        from connection_yaml import load_yaml_authoring
+        try:
+            bundle = load_contract(Path(__file__).resolve().parents[1])
+            config = load_yaml_authoring(*sys.argv[2:], bundle=bundle)
+            validate_connections(config, bundle)
+        except ContractError as error:
+            print(error.code + ': ' + error.path, file=sys.stderr)
+            return 1
+        return 0
     if len(sys.argv) != 2 or sys.argv[1] not in ('check', 'references'):
         print('invalid_command: /', file=sys.stderr)
         return 1
