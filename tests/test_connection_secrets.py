@@ -199,24 +199,35 @@ class ConnectionSecretsCliTest(unittest.TestCase):
             os.kill(int(pidfile.read_text()), 0)  # child reaped, not left alive/zombie
 
     def test_bounded_adapter_timeout_terminates_and_reaps(self):
-        pidfile = Path(self.temp.name) / 'pid'
         marker = Path(self.temp.name) / 'finished'
-        self.install_fake('import os, pathlib, time\n'
-                          'pathlib.Path(os.environ["FAKE_PID"]).write_text(str(os.getpid()))\n'
-                          'time.sleep(3)\n'
+        gate = Path(self.temp.name) / 'startup-gate'
+        os.mkfifo(gate)  # No writer: the child cannot finish, regardless of startup speed.
+        self.install_fake('import os, pathlib\n'
+                          'with open(os.environ["FAKE_GATE"], "rb") as gate:\n'
+                          '    gate.read(1)\n'
                           'pathlib.Path(os.environ["FAKE_FINISHED"]).write_text("finished")\n')
-        env = dict(self.env, FAKE_PID=str(pidfile), FAKE_FINISHED=str(marker))
-        with patch.dict(os.environ, env, clear=True):
+        env = dict(self.env, FAKE_GATE=str(gate), FAKE_FINISHED=str(marker))
+        processes = []
+        real_popen = subprocess.Popen
+
+        def capture_process(*args, **kwargs):
+            process = real_popen(*args, **kwargs)
+            processes.append(process)
+            return process
+
+        with patch.dict(os.environ, env, clear=True), patch.object(subprocess, 'Popen', capture_process):
             with self.assertRaises(subprocess.TimeoutExpired):
                 checker._run_bounded(['kubectl', '--context=ctx', '--namespace=phoenix',
                                       '--request-timeout=30s', 'get', 'secret', '-o',
                                       'go-template=' + checker.KEYS_TEMPLATE, 'ok'],
                                      stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                      timeout=0.4, check=False)
-        self.assertTrue(pidfile.is_file())
+        self.assertEqual(len(processes), 1)
+        self.assertIsNotNone(processes[0].returncode)  # Adapter reaped it, not this assertion.
+        self.assertTrue(processes[0].stdout.closed)
         self.assertFalse(marker.exists())
         with self.assertRaises(ProcessLookupError):
-            os.kill(int(pidfile.read_text()), 0)
+            os.kill(processes[0].pid, 0)
 
     def test_cli_invalid_input_never_executes_fake(self):
         for payload in (b'[{"name":"ok","key":"key"},{"name":"bad/name","key":"x"}]',
