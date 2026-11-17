@@ -116,6 +116,18 @@ generate_internal_secrets() (
     return 1
   fi
 
+  # Validate existing raw authoring before generation's merge can erase it.
+  # A missing secrets file still follows normal local creation/generation;
+  # preflight validates the completed inputs again after generation.
+  if [[ -f "$selected_secrets" ]]; then
+    if ! python3 "$repo_root/scripts/connection-config.py" gate-yaml \
+        "$repo_root/release.yaml" "$repo_root/defaults/values.yaml" \
+        "$selected_values" "$selected_secrets" >/dev/null 2>&1; then
+      echo 'ERROR: connection_gate_failed' >&2
+      return 1
+    fi
+  fi
+
   merged_config=$(mktemp)
   generated_file=""
   # shellcheck disable=SC2329 # Called by the EXIT trap in this subshell.
