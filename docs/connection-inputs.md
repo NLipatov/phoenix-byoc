@@ -2,13 +2,12 @@
 
 ## Status and boundary
 
-This guide describes unreleased **feature-branch** authoring and the companion
-preflight/render and changed-input protections. Those two integration lanes must
-be verified against the combined source before integration or publication; this
-document is not evidence that an installation succeeded.
+This guide describes unreleased **feature-branch** authoring, preflight/render
+and changed-input protections. This document is not evidence that an
+installation succeeded.
 
 The shipped release is **0.2.6**, channel `stable`, source environment `preview`.
-It has **no verified enabled-delivery authority**. In the companion integration,
+It has **no verified enabled-delivery authority**. On this feature branch,
 preflight and standalone render reject **all enabled new delivery**, including
 generic-only, secret-only and enabled empty inputs. Valid absent or disabled
 legacy paths remain usable. There is no customer override, capability allowlist
@@ -63,7 +62,7 @@ These are independent, synthetic **authoring examples only**, not installation
 inputs or capability claims. Each passes the existing authoring helper; the
 named example fails the shipped capability predicate. Generic predicate
 `not-applicable` means no named connection to check, **not** generic admission.
-All enabled examples remain blocked by the companion installation/render gate.
+All enabled examples remain blocked by the feature-branch installation/render gate.
 The example UUID is a fixture, not a customer enterprise identity. No Secret is
 created and no credential is supplied by these snippets.
 
@@ -198,13 +197,15 @@ source-contract semantics, not proof that release 0.2.6 delivers the feature.
 
 ## Rendering, changed inputs and privacy
 
-In the companion feature-branch integration, preflight validates raw/final local
-authoring before cluster resource reads; standalone rendering applies the same
-local gate without a Secret GET. Full rendering must finish before any cluster
-mutation, including cache cutover. Selected/local input changes require fresh
-validation and rendering rather than applying unchecked edits. The installer
-uses **private snapshots** and comparisons, binds selected values/secrets,
-release/defaults/contracts, relevant local charts/templates and configured
+On this feature branch, preflight validates raw/final local authoring before
+cluster resource reads; standalone rendering applies the same local gate
+without a Secret GET. Full rendering must finish before any cluster
+mutation, including cache cutover. The installer automatically detects changes
+to selected/local inputs and aborts rather than applying unchecked edits. The
+operator must rerun validation and rendering; the installer does not
+revalidate automatically. It uses **private snapshots** and comparisons, binds
+selected values/secrets, release/defaults/contracts, relevant local
+charts/templates and configured
 roots/environment, and cleans private state on exit/signals. No public guard
 protocol or bypass command is needed.
 

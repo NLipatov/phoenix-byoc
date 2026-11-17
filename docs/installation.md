@@ -142,11 +142,11 @@ The installer never selects or changes a context.
 
 See [Agent connection inputs](connection-inputs.md) before supplying `llm` or
 `agentInputDelivery`. The authoring helper is not an install approval; the
-companion feature-branch preflight/render gates reject all enabled new delivery
-for release `0.2.6`. Valid absent/disabled legacy inputs remain usable. The guide
-also describes automatic changed-input revalidation, private snapshots and
-cleanup, and their local-input (not remote-artifact attestation) boundary.
-These integration changes require combined-source verification before publication.
+feature-branch preflight/render gates reject all enabled new delivery for release
+`0.2.6`. Valid absent/disabled legacy inputs remain usable. The guide also
+describes automatic changed-input detection: the installer aborts and requires
+the operator to rerun validation and rendering. Private snapshots and cleanup
+protect local inputs; they do not attest remote artifacts.
 
 ## AgentFS prerequisites
 
