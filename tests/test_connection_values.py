@@ -4,6 +4,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import secrets
 import subprocess
 import sys
 import unittest
@@ -217,15 +218,19 @@ class ConnectionValuesTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             if command == 'references':
                 self.assertEqual(json.loads(result.stdout), [{'name': 'synthetic-provider-secret', 'key': 'api-key'}])
+        nonce = 'hostile_' + secrets.token_hex(12)
         hostile_connection = self.base()
-        hostile_connection['llm']['connections']['hostile\nprivate'] = hostile_connection['llm']['connections'].pop('example')
-        for payload in ('{hostile', json.dumps({'llm': {'hostile\n': 'private'}}),
-                        json.dumps(hostile_connection),
-                        json.dumps({'agentInputDelivery': {'enabled': False, 'env': {'hostile\n': 'secret'}}})):
-            result = subprocess.run([sys.executable, str(ROOT / 'scripts/connection-config.py'), 'references'],
-                                    input=payload, text=True, capture_output=True, cwd=ROOT)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertEqual(result.stdout, '')
-            self.assertNotIn('hostile', result.stderr)
-            self.assertNotIn('secret', result.stderr)
-            self.assertNotIn('Traceback', result.stderr)
+        hostile_connection['llm']['connections'][nonce + '\nprivate'] = hostile_connection['llm']['connections'].pop('example')
+        payloads = ('{hostile', json.dumps({'llm': {'hostile\n': 'private'}}),
+                    json.dumps(hostile_connection),
+                    json.dumps({'agentInputDelivery': {'enabled': False, 'env': {'hostile\n': 'secret'}}}))
+        for command in ('check', 'references'):
+            for payload in payloads:
+                result = subprocess.run([sys.executable, str(ROOT / 'scripts/connection-config.py'), command],
+                                        input=payload, text=True, capture_output=True, cwd=ROOT)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, '')
+                self.assertNotIn('hostile', result.stderr)
+                self.assertNotIn(nonce, result.stderr)
+                self.assertNotIn('secret', result.stderr)
+                self.assertNotIn('Traceback', result.stderr)
