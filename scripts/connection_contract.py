@@ -1,6 +1,7 @@
 """Offline integrity loader for the immutable owner exports; not configuration admission."""
 
 from dataclasses import dataclass
+from enum import Enum
 import hashlib
 import json
 import os
@@ -234,6 +235,11 @@ class ValidatedInputs:
     required_capabilities: tuple[tuple[str, str, str], ...]
 
 
+class NamedCapability(Enum):
+    NOT_APPLICABLE = 'not-applicable'
+    ADMITTED = 'admitted'
+
+
 # Route identity is read from the pinned producer's fixed discriminators;
 # APIs and required capability tuples come from its pinned capability records.
 # This is not another route catalog or a schema validation interpreter.
@@ -350,14 +356,7 @@ def validate_connections(config: dict, bundle: ContractBundle) -> ValidatedInput
     secrets.update({name: SecretKeyRef(**ref) for name, ref in llm_secrets.items()})
     capabilities = json.loads(bundle.capabilities.read_bytes())['entries']
     allowed_tuples = {(entry['route'], entry['api'], entry['authMode']) for entry in capabilities}
-    schema = json.loads(bundle.schema.read_bytes())
-    families = {}
-    for route in {entry['route'] for entry in capabilities}:
-        discriminators = schema['definitions']['llmConnectionsV1_' + route]['allOf'][1]['properties']
-        key = (discriminators['PLATFORM']['const'], discriminators['PUBLISHER']['const'])
-        if key in families:
-            raise ContractError('connection_contract_invalid', '/llm')
-        families[key] = route
+    families = _route_families(bundle, capabilities)
     required = set()
     if 'llm' in config:
         plain['PHOENIX_LLM_CONFIG_VERSION'] = '1'
@@ -430,6 +429,53 @@ def validate_connections(config: dict, bundle: ContractBundle) -> ValidatedInput
     if any(len(value.encode('utf-8')) > 65536 for value in plain.values()) or len(_transport_json(plain)) > 65536:
         raise ContractError('env_size_limit', '/agentInputDelivery/env')
     return ValidatedInputs(enabled, plain, secrets, tuple(sorted(platform)), tuple(sorted(required)))
+
+
+def _route_families(bundle, capabilities):
+    schema = json.loads(bundle.schema.read_bytes())
+    families = {}
+    for route in {entry['route'] for entry in capabilities}:
+        discriminators = schema['definitions']['llmConnectionsV1_' + route]['allOf'][1]['properties']
+        key = (discriminators['PLATFORM']['const'], discriminators['PUBLISHER']['const'])
+        if key in families:
+            raise ContractError('connection_contract_invalid', '/llm')
+        families[key] = route
+    return families
+
+
+def check_named_capabilities(config: dict, validated: ValidatedInputs,
+                             bundle: ContractBundle) -> NamedCapability:
+    """Check only named route/API/auth evidence after authoring validation.
+
+    NOT_APPLICABLE (empty or generic-only) is never generic/release/install permission.
+    The production bundle comes from load_contract; private tables are test fixtures only.
+    """
+    connections = config.get('llm', {}).get('connections', {})
+    if not connections:
+        return NamedCapability.NOT_APPLICABLE
+    entries = json.loads(bundle.capabilities.read_bytes())['entries']
+    # Read identity from the owner's schema, not the test candidate table.
+    schema = json.loads(bundle.schema.read_bytes())
+    owner_routes = (key.removeprefix('llmConnectionsV1_') for key, definition in schema['definitions'].items()
+                    if key.startswith('llmConnectionsV1_') and 'allOf' in definition and
+                    len(definition['allOf']) > 1 and
+                    'PLATFORM' in definition['allOf'][1].get('properties', {}))
+    families = _route_families(bundle, ({'route': route} for route in owner_routes))
+    for name, connection in connections.items():
+        route = families.get((connection['PLATFORM'], connection['PUBLISHER']))
+        auth = connection['AUTH_MODE']
+        candidates = [entry for entry in entries if entry.get('route') == route and
+                      entry.get('authMode') == auth and
+                      ('API' not in connection or entry.get('api') == connection['API'])]
+        # Omitted API must count every route/auth row before comparing with the
+        # native API selected by the real owner authoring rules.
+        if len(candidates) != 1 or candidates[0].get('status') != 'offline-proven':
+            raise ContractError('connection_capability_unsupported', '/llm/connections')
+        selected = candidates[0].get('api')
+        native_api = validated.plain_env.get('PHOENIX_LLM_' + name.upper() + '_API')
+        if selected != native_api or (route, selected, auth) not in validated.required_capabilities:
+            raise ContractError('connection_capability_unsupported', '/llm/connections')
+    return NamedCapability.ADMITTED
 
 
 def _has_control(value, ranges):
