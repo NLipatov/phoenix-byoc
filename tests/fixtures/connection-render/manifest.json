@@ -1,0 +1,169 @@
+{
+  "release": {
+    "version": "0.2.6",
+    "channel": "stable",
+    "sourceEnvironment": "preview",
+    "observedAt": "2026-11-10"
+  },
+  "releaseYamlSha256": "db5815cc4e14a77d70a6c3fd6804fe55058f8b5adfb62308aacc8926ce057a8d",
+  "sourceFiles": [
+    "charts/artifact-publisher/Chart.yaml",
+    "charts/artifact-publisher/templates/secret.yaml",
+    "charts/artifact-publisher/values.yaml",
+    "charts/clickhouse/Chart.yaml",
+    "charts/clickhouse/templates/_helpers.tpl",
+    "charts/clickhouse/templates/secret.yaml",
+    "charts/clickhouse/templates/service.yaml",
+    "charts/clickhouse/templates/statefulset.yaml",
+    "charts/clickhouse/values.yaml",
+    "charts/ecr-pull-secret-refresh/Chart.yaml",
+    "charts/ecr-pull-secret-refresh/templates/_helpers.tpl",
+    "charts/ecr-pull-secret-refresh/templates/credentials-secret.yaml",
+    "charts/ecr-pull-secret-refresh/templates/cronjob.yaml",
+    "charts/ecr-pull-secret-refresh/templates/job.yaml",
+    "charts/ecr-pull-secret-refresh/templates/pull-secret.yaml",
+    "charts/ecr-pull-secret-refresh/templates/role.yaml",
+    "charts/ecr-pull-secret-refresh/templates/rolebinding.yaml",
+    "charts/ecr-pull-secret-refresh/templates/serviceaccount.yaml",
+    "charts/ecr-pull-secret-refresh/values.yaml",
+    "charts/postgresql-bootstrap/Chart.yaml",
+    "charts/postgresql-bootstrap/templates/job.yaml",
+    "charts/postgresql-bootstrap/templates/schema-job.yaml",
+    "charts/postgresql-bootstrap/values.yaml",
+    "defaults/values.yaml",
+    "examples/values.yaml",
+    "helmfile.yaml.gotmpl",
+    "release.yaml",
+    "tests/fixtures/values.secrets.yaml",
+    "values/artifact-publisher.yaml.gotmpl",
+    "values/clickhouse.yaml.gotmpl",
+    "values/cortex-postgresql.yaml.gotmpl",
+    "values/ecr-pull-secret-refresh.yaml.gotmpl",
+    "values/fuse-device-plugin.yaml.gotmpl",
+    "values/ingress-nginx.yaml.gotmpl",
+    "values/opensandbox-controller.yaml.gotmpl",
+    "values/phoenix-gateway.yaml.gotmpl",
+    "values/phoenix-web-frontend.yaml.gotmpl",
+    "values/phoenix-web.yaml.gotmpl",
+    "values/phoenix-workflow-engine.yaml.gotmpl",
+    "values/postgresql-bootstrap.yaml.gotmpl",
+    "values/postgresql.yaml.gotmpl",
+    "values/redis.yaml.gotmpl"
+  ],
+  "charts": [
+    {
+      "name": "fuse-device-plugin",
+      "version": "0.1.0",
+      "releasePin": "fuseDevicePlugin",
+      "archive": "published/fuse-device-plugin-0.1.0.tgz",
+      "sha256": "e3bf2b57cbd927a0dab7d218ffff8ccd3dfbbf74da746128d8bad0810781c102",
+      "dependencies": [],
+      "source": "oci://ghcr.io/canonix-engineering/phoenix-byoc/fuse-device-plugin",
+      "ociManifestDigest": "sha256:9910930f6208dfdee32e87479d01ce9ff797089c59b04073cc5ad5b36f5329ed"
+    },
+    {
+      "name": "cortex-postgresql",
+      "version": "0.1.0",
+      "releasePin": "cortexPostgresql",
+      "archive": "published/cortex-postgresql-0.1.0.tgz",
+      "sha256": "c1779533217be73db0a24a676cb94e20006d3cfff9c1c4698956374faee3eef5",
+      "dependencies": [],
+      "source": "oci://ghcr.io/canonix-engineering/phoenix-byoc/cortex-postgresql",
+      "ociManifestDigest": "sha256:47a4b6dc3ef9ac86a11de3b3c6fac3f43d1110284d820734c629e579e83190d9"
+    },
+    {
+      "name": "opensandbox-controller",
+      "version": "0.2.3",
+      "releasePin": "opensandboxController",
+      "archive": "published/opensandbox-controller-0.2.3.tgz",
+      "sha256": "d35a14abba7bf7a7d97a5df8ff3b60b459eda636fb612990210d70fec5f7cf82",
+      "dependencies": [],
+      "source": "oci://ghcr.io/canonix-engineering/phoenix-byoc/opensandbox-controller",
+      "ociManifestDigest": "sha256:4bbcaa0aada9e29ac17fe8308a1e99f5590516c3afd2082e351ab88715cd876e"
+    },
+    {
+      "name": "phoenix-web",
+      "version": "0.2.4",
+      "releasePin": "phoenixWeb",
+      "archive": "published/phoenix-web-0.2.4.tgz",
+      "sha256": "3bd874594f72f715f9db1236f3d2ae47271cae96389710ab222179b6b2953b21",
+      "dependencies": [],
+      "source": "oci://ghcr.io/canonix-engineering/phoenix-byoc/phoenix-web",
+      "ociManifestDigest": "sha256:67bb9561be6e654f61b44e528e4a70f6d8809756849e8d349dd48c4ce5b9824a"
+    },
+    {
+      "name": "phoenix-web-frontend",
+      "version": "0.1.1",
+      "releasePin": "phoenixWebFrontend",
+      "archive": "published/phoenix-web-frontend-0.1.1.tgz",
+      "sha256": "9304a99c2a7c3828081eec87e1e54aad5d0a6e4b706ea534458cb3abff8ab27a",
+      "dependencies": [],
+      "source": "oci://ghcr.io/canonix-engineering/phoenix-byoc/phoenix-web-frontend",
+      "ociManifestDigest": "sha256:cb912f4846641dcd57138cc9fc14d137bb43a414e6244d5c422bf0ff779d5183"
+    },
+    {
+      "name": "phoenix-gateway",
+      "version": "0.5.0",
+      "releasePin": "phoenixGateway",
+      "archive": "published/phoenix-gateway-0.5.0.tgz",
+      "sha256": "00a8a9c09e1618e59f8186fd8159ca5647b7062905d34755dcf7c4c9d9222be9",
+      "dependencies": [],
+      "source": "oci://ghcr.io/canonix-engineering/phoenix-byoc/phoenix-gateway",
+      "ociManifestDigest": "sha256:b3c3d71ab25ab0a9cbadc5d28b229420b2f6749f387e6e2651c01b6024697689"
+    },
+    {
+      "name": "phoenix-workflow-engine",
+      "version": "0.2.8",
+      "releasePin": "phoenixWorkflowEngine",
+      "archive": "published/phoenix-workflow-engine-0.2.8.tgz",
+      "sha256": "e48c8759b01b7fc7f793e24e607d1674767f602b399138d4d1d46e4e022910aa",
+      "dependencies": [],
+      "source": "oci://ghcr.io/canonix-engineering/phoenix-byoc/phoenix-workflow-engine",
+      "ociManifestDigest": "sha256:d4991d93c0fe44f4f2c42d533da56f7f3da4d2161b7ea52356ae3488ea4218a6"
+    },
+    {
+      "name": "postgresql",
+      "version": "2.0.4",
+      "releasePin": "postgresql",
+      "archive": "published/postgresql-2.0.4.tgz",
+      "sha256": "71b2d3e09ee5664dbd97b656b6daa73ab3168a803cab21ed9005ac2c7ea0af79",
+      "dependencies": [],
+      "source": "oci://ghcr.io/helmforgedev/helm/postgresql",
+      "ociManifestDigest": "sha256:5da26eb1b63318084c7b5246ea7ec2d9552a3351548847cffc122809144eca13"
+    },
+    {
+      "name": "redis",
+      "version": "1.6.18",
+      "releasePin": "redis",
+      "archive": "published/redis-1.6.18.tgz",
+      "sha256": "01f8978262d5910da84554a0bb3a4e9641310727ab72e4c88171e3fc929ce014",
+      "dependencies": [],
+      "source": "oci://ghcr.io/helmforgedev/helm/redis",
+      "ociManifestDigest": "sha256:5d6be8efa5e8dfc4a621b44e421a2995d24bc982bcad9f4d205faa963d25b599"
+    },
+    {
+      "name": "ingress-nginx",
+      "version": "4.12.2",
+      "releasePin": "ingressNginx",
+      "archive": "published/ingress-nginx-4.12.2.tgz",
+      "sha256": "2dbeec3052a3744762131a7c042f242b834f50fe773591a502dacea38b64a319",
+      "dependencies": [],
+      "source": "https://kubernetes.github.io/ingress-nginx",
+      "ociManifestDigest": null
+    }
+  ],
+  "unreleasedEngine": {
+    "archive": "unreleased-engine-8fa3ecba.tgz",
+    "sha256": "d0f49a00daaca6ed875ecf1d7c5cec870043d97635b833c1248988b552f8b0af",
+    "sourceCommit": "8fa3ecba678acd8599fd90aa2f0e9e4d7e0ca38d",
+    "chartVersion": "0.2.9",
+    "lockSha256": "d5c5406aff1a9b9d8a4166373da86e618eadcda72b287a14d3de0aa8df38291b",
+    "status": "unreleased Git-source candidate; fixture only, not a published release"
+  },
+  "legacyTemplate": {
+    "path": "legacy-phoenix-workflow-engine.yaml.gotmpl",
+    "sha256": "268711a0f6978513874453e801bf64cbf3b21a09f9b302db695e93caee145d8c",
+    "sourceCommit": "686b2bf3e8b41037a9fc9a7ed21bcb5dac6d7761"
+  },
+  "authorization": "user approved BYOC chart downloads only; no tools/images/credentials/cluster actions"
+}

@@ -1,75 +1,92 @@
 """Offline conformance through the real BYOC Helmfile and hash-verified Engine charts."""
 import copy
-import importlib.util
 import json
+import os
 from pathlib import Path
+import re
+import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import yaml
+from connection_render_fixture import copy_source_files, digest, extract
 
 ROOT = Path(__file__).resolve().parents[1]
-PLAN = ROOT / '.superpowers/sdd/2026-11-16-connection-install-validation'
-CANDIDATE = Path('/Users/shashank/Canonix/reports/provider-architecture/implementation/execution/handoffs/unreleased-engine-chart-8fa3ecba.tgz')
+FIXTURES = ROOT / 'tests/fixtures/connection-render'
 CANDIDATE_SHA = 'd0f49a00daaca6ed875ecf1d7c5cec870043d97635b833c1248988b552f8b0af'
-HELM = '/Users/shashank/.local/share/mise/installs/helm/3.18.6/darwin-arm64/helm'
-HELMFILE = '/Users/shashank/.local/share/mise/installs/helmfile/0.171.0/helmfile'
-PYTHON = '/Users/shashank/miniconda3/bin/python'
+LEGACY_TEMPLATE_SHA = '268711a0f6978513874453e801bf64cbf3b21a09f9b302db695e93caee145d8c'
+LOCK_SHA = 'd5c5406aff1a9b9d8a4166373da86e618eadcda72b287a14d3de0aa8df38291b'
 ENTERPRISE = '12345678-1234-4234-8234-123456789abc'  # synthetic, not a customer identity
 
 
 class ConnectionRenderTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        for binary in (HELM, HELMFILE, PYTHON):
-            if not Path(binary).is_file():
-                raise RuntimeError(f'pinned tool missing: {binary}')
-        spec = importlib.util.spec_from_file_location('offline_fixture', PLAN / 'offline-render-fixture.py')
-        fixture = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(fixture)
         cls.scratch = tempfile.TemporaryDirectory(prefix='byoc-connection-render-')
         cls.addClassCleanup(cls.scratch.cleanup)
         cls.work = Path(cls.scratch.name)
+        cls.isolation = cls.work / 'isolation'
+        for part in ('bin', 'home', 'cache', 'config', 'data', 'plugins', 'helmfile-cache'):
+            (cls.isolation / part).mkdir(parents=True, mode=0o700)
+        for name in ('kubectl', 'curl', 'wget'):
+            spy = cls.isolation / 'bin' / name
+            spy.write_text('#!/bin/sh\necho "blocked tool invoked" >&2\nexit 97\n')
+            spy.chmod(0o700)
+        (cls.isolation / 'no-kubeconfig').touch()
+        cls.helm = cls.pinned_tool('PHOENIX_TEST_HELM', 'helm', r'^v3\.18\.6(?:\+|$)', ('version', '--short'))
+        cls.helmfile = cls.pinned_tool('PHOENIX_TEST_HELMFILE', 'helmfile', r'^helmfile version 0\.171\.0\s*$', ('--version',))
+        manifest = json.loads((FIXTURES / 'manifest.json').read_text())
+        release = yaml.safe_load((ROOT / 'release.yaml').read_text())
+        if (manifest['releaseYamlSha256'] != 'db5815cc4e14a77d70a6c3fd6804fe55058f8b5adfb62308aacc8926ce057a8d'
+                or digest(ROOT / 'release.yaml') != manifest['releaseYamlSha256'] or release['release'] != manifest['release']
+                or len(manifest['charts']) != 10 or len(manifest['sourceFiles']) != 42):
+            raise RuntimeError('pinned release inventory mismatch')
         cls.source = cls.work / 'source'
         cls.source.mkdir(mode=0o700)
+        copy_source_files(ROOT, cls.source, manifest['sourceFiles'])
         cls.charts = cls.work / 'charts'
         cls.charts.mkdir(mode=0o700)
-        manifest = json.loads((PLAN / 'chart-downloads/manifest.json').read_text())
-        release = yaml.safe_load((ROOT / 'release.yaml').read_text())
-        if (fixture.digest(ROOT / 'release.yaml') != manifest['release_yaml_sha256']
-                or release['release'] != manifest['release'] or len(manifest['charts']) != 10):
-            raise RuntimeError('pinned release inventory mismatch')
-        baseline = subprocess.check_output(['git', 'archive', '--format=tar', '686b2bf3e8b41037a9fc9a7ed21bcb5dac6d7761'], cwd=ROOT)
-        fixture.extract(baseline, cls.source)
-        for path in ('defaults/values.yaml', 'examples/values.yaml', 'values/phoenix-workflow-engine.yaml.gotmpl'):
-            (cls.source / path).write_bytes((ROOT / path).read_bytes())
         pins = {'fuse-device-plugin': 'fuseDevicePlugin', 'cortex-postgresql': 'cortexPostgresql',
                 'opensandbox-controller': 'opensandboxController', 'phoenix-web': 'phoenixWeb',
                 'phoenix-web-frontend': 'phoenixWebFrontend', 'phoenix-gateway': 'phoenixGateway',
                 'phoenix-workflow-engine': 'phoenixWorkflowEngine', 'postgresql': 'postgresql',
                 'redis': 'redis', 'ingress-nginx': 'ingressNginx'}
+        if {chart['name'] for chart in manifest['charts']} != set(pins):
+            raise RuntimeError('published chart inventory mismatch')
         for chart in manifest['charts']:
             name, version = chart['name'], str(chart['version'])
-            archive = PLAN / 'chart-downloads' / name / f'{name}-{version}.tgz'
-            if (chart['status'] != 'verified-archive' or chart['archive'] != str(archive)
-                    or chart['dependencies'] or str(release['versions'][pins[name]]) != version
-                    or fixture.digest(archive) != chart['archive_sha256']):
+            archive = FIXTURES / chart['archive']
+            if (chart['releasePin'] != pins[name] or chart['dependencies']
+                    or str(release['versions'][pins[name]]) != version or digest(archive) != chart['sha256']):
                 raise RuntimeError(f'pinned archive mismatch: {name}')
             if name != 'phoenix-workflow-engine':
-                fixture.extract(archive.read_bytes(), cls.charts, name)
+                extract(archive.read_bytes(), cls.charts, name)
             else:
                 cls.old_archive = archive
-        if fixture.digest(CANDIDATE) != CANDIDATE_SHA:
-            raise RuntimeError('unreleased chart candidate hash mismatch')
-        fixture.extract(CANDIDATE.read_bytes(), cls.charts, 'phoenix-workflow-engine')
+        candidate = manifest['unreleasedEngine']
+        candidate_archive = FIXTURES / candidate['archive']
+        if (candidate['sourceCommit'] != '8fa3ecba678acd8599fd90aa2f0e9e4d7e0ca38d'
+                or candidate['status'] != 'unreleased Git-source candidate; fixture only, not a published release'
+                or candidate['sha256'] != CANDIDATE_SHA or digest(candidate_archive) != CANDIDATE_SHA):
+            raise RuntimeError('unreleased chart candidate provenance mismatch')
+        extract(candidate_archive.read_bytes(), cls.charts, 'phoenix-workflow-engine')
         lock = cls.charts / 'phoenix-workflow-engine/contracts/native-provider-inputs.lock.json'
-        if fixture.digest(lock) != 'd5c5406aff1a9b9d8a4166373da86e618eadcda72b287a14d3de0aa8df38291b':
+        if (candidate['lockSha256'] != LOCK_SHA or digest(lock) != LOCK_SHA
+                or digest(ROOT / 'contracts/native-provider-inputs.lock.json') != LOCK_SHA):
             raise RuntimeError('candidate owner lock mismatch')
         for chart in manifest['charts']:
             meta = yaml.safe_load((cls.charts / chart['name'] / 'Chart.yaml').read_text())
-            if (meta['name'] != chart['name'] or str(meta['version']) != ('0.2.9' if chart['name'] == 'phoenix-workflow-engine' else str(chart['version'])) or meta.get('dependencies')):
+            version = candidate['chartVersion'] if chart['name'] == 'phoenix-workflow-engine' else str(chart['version'])
+            if meta['name'] != chart['name'] or str(meta['version']) != version or meta.get('dependencies'):
                 raise RuntimeError(f'chart metadata mismatch: {chart["name"]}')
+        cls.legacy_template = FIXTURES / manifest['legacyTemplate']['path']
+        if (manifest['legacyTemplate']['sourceCommit'] != '686b2bf3e8b41037a9fc9a7ed21bcb5dac6d7761'
+                or manifest['legacyTemplate']['sha256'] != LEGACY_TEMPLATE_SHA
+                or digest(cls.legacy_template) != LEGACY_TEMPLATE_SHA):
+            raise RuntimeError('frozen legacy template mismatch')
         helmfile = cls.source / 'helmfile.yaml.gotmpl'
         text = helmfile.read_text()
         mappings = {
@@ -96,14 +113,22 @@ class ConnectionRenderTest(unittest.TestCase):
         cls.secrets['secrets']['registry'] = {'ecr': {'accessKeyId': 'test-only-ecr-id',
                                                       'secretAccessKey': 'test-only-ecr-key', 'sessionToken': ''}}
         cls.secrets['secrets']['application']['mailgunApiKey'] = ''
-        cls.isolation = cls.work / 'isolation'
-        for part in ('bin', 'home', 'cache', 'config', 'data', 'plugins', 'helmfile-cache'):
-            (cls.isolation / part).mkdir(parents=True, mode=0o700)
-        for name in ('kubectl', 'curl', 'wget'):
-            spy = cls.isolation / 'bin' / name
-            spy.write_text('#!/bin/sh\necho "blocked tool invoked" >&2\nexit 97\n')
-            spy.chmod(0o700)
-        (cls.isolation / 'no-kubeconfig').touch()
+
+    @classmethod
+    def pinned_tool(cls, override, command, version_pattern, version_args):
+        executable = os.environ.get(override) or shutil.which(command)
+        if not executable or not Path(executable).is_file() or not os.access(executable, os.X_OK):
+            raise RuntimeError(f'missing pinned {command}; set {override} to its executable')
+        executable = str(Path(executable).resolve())
+        environment = {'PATH': f'{cls.isolation / "bin"}:/usr/bin:/bin', 'HOME': str(cls.isolation / 'home'),
+                       'KUBECONFIG': str(cls.isolation / 'no-kubeconfig'),
+                       'HTTPS_PROXY': 'http://127.0.0.1:9', 'HTTP_PROXY': 'http://127.0.0.1:9',
+                       'NO_PROXY': '', 'HELM_CONFIG_HOME': str(cls.isolation / 'config')}
+        version = subprocess.run([executable, *version_args], env=environment, text=True,
+                                 capture_output=True, timeout=10)
+        if version.returncode or not re.search(version_pattern, version.stdout):
+            raise RuntimeError(f'{command} must be pinned to {"3.18.6" if command == "helm" else "0.171.0"}')
+        return executable
 
     def render(self, overlay=None, *, old=False, baseline=False, synthetic_capability=False, all_releases=False, forwarded=False):
         values = copy.deepcopy(self.values)
@@ -133,16 +158,13 @@ class ConnectionRenderTest(unittest.TestCase):
             if baseline:
                 template = self.source / 'values/phoenix-workflow-engine.yaml.gotmpl'
                 original_template = template.read_bytes()
-                template.write_bytes(subprocess.check_output(['git', 'show', '686b2bf3e8b41037a9fc9a7ed21bcb5dac6d7761:values/phoenix-workflow-engine.yaml.gotmpl'], cwd=ROOT))
+                template.write_bytes(self.legacy_template.read_bytes())
             if old:
                 # Published >=0.2.8 chart, switched only in isolated scratch.
                 chart = self.charts / 'phoenix-workflow-engine'
                 replacement = directory / 'charts'
                 replacement.mkdir()
-                spec = importlib.util.spec_from_file_location('offline_fixture_run', PLAN / 'offline-render-fixture.py')
-                fixture = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(fixture)
-                fixture.extract(self.old_archive.read_bytes(), replacement, 'phoenix-workflow-engine')
+                extract(self.old_archive.read_bytes(), replacement, 'phoenix-workflow-engine')
                 path = self.source / 'helmfile.yaml.gotmpl'
                 text = path.read_text().replace(str(chart), str(replacement / 'phoenix-workflow-engine'))
                 # Keep the offline chart substitution in the isolated source tree.
@@ -155,9 +177,10 @@ class ConnectionRenderTest(unittest.TestCase):
                    'HELM_PLUGINS': str(self.isolation / 'plugins'), 'HELMFILE_CACHE_HOME': str(self.isolation / 'helmfile-cache'),
                    'HELMFILE_DISABLE_RUNNER_UNIQUE_ID': 'true', 'PHOENIX_BYOC_NAMESPACE': 'phoenix',
                    'PHOENIX_BYOC_VALUES_FILE': str(values_path), 'PHOENIX_BYOC_SECRETS_FILE': str(secrets_path),
-                   'PHOENIX_AGENTFS_RETAINED_IMAGES_JSON': '[]'}
+                   'PHOENIX_AGENTFS_RETAINED_IMAGES_JSON': '[]',
+                   'HTTPS_PROXY': 'http://127.0.0.1:9', 'HTTP_PROXY': 'http://127.0.0.1:9', 'NO_PROXY': ''}
             try:
-                command = [HELMFILE, '--helm-binary', HELM, '--file', 'helmfile.yaml.gotmpl', '--skip-deps']
+                command = [self.helmfile, '--helm-binary', self.helm, '--file', 'helmfile.yaml.gotmpl', '--skip-deps']
                 if not all_releases:
                     command.extend(('-l', 'name=phoenix-workflow-engine'))
                 if forwarded:
@@ -200,7 +223,6 @@ class ConnectionRenderTest(unittest.TestCase):
         self.assertEqual(current.stdout, baseline.stdout)
         self.assertEqual(len(docs), 94)
         self.assertEqual(sum(isinstance(doc, dict) and 'kind' in doc for doc in docs), 93)
-        import re
         self.assertEqual(len(set(re.findall(r'^# Source: ([^/]+)/', current.stdout, re.M))), 14)
 
     def test_legacy_vertex_and_agent_secrets_preserved(self):
@@ -246,7 +268,6 @@ class ConnectionRenderTest(unittest.TestCase):
                 self.assertFalse(any('agent-inputs' in json.dumps(d) for d in self.objects(docs, 'Deployment') if d is not operators[0]))
 
     def test_invalid_present_blocks_not_discarded(self):
-        import sys
         sys.path.insert(0, str(ROOT / 'scripts'))
         from connection_contract import ContractError, load_contract, validate_connections
         bundle = load_contract(ROOT)
@@ -258,8 +279,19 @@ class ConnectionRenderTest(unittest.TestCase):
                 self.assertEqual(forwarded.returncode, 0, forwarded.stderr[:300])
                 self.assertIn(key, values[0])
                 self.assertEqual(values[0][key], invalid)
-                with self.assertRaises(ContractError):
-                    validate_connections({key: invalid}, bundle)
+                schema_env = {'PATH': f'{Path(self.helm).parent}:/usr/bin:/bin',
+                              'HOME': str(self.isolation / 'home'),
+                              'KUBECONFIG': str(self.isolation / 'no-kubeconfig'),
+                              'HELM_CACHE_HOME': str(self.isolation / 'cache'),
+                              'HELM_CONFIG_HOME': str(self.isolation / 'config'),
+                              'HELM_DATA_HOME': str(self.isolation / 'data'),
+                              'HELM_PLUGINS': str(self.isolation / 'plugins'),
+                              'HTTPS_PROXY': 'http://127.0.0.1:9', 'HTTP_PROXY': 'http://127.0.0.1:9',
+                              'NO_PROXY': ''}
+                with patch.dict(os.environ, schema_env, clear=True):
+                    with self.assertRaises(ContractError) as rejected:
+                        validate_connections({key: invalid}, bundle)
+                self.assertNotEqual(rejected.exception.code, 'connection_validation_unavailable')
                 result, _ = self.render({key: invalid})
                 self.assertNotEqual(result.returncode, 0)
 
