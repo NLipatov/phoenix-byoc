@@ -202,6 +202,44 @@ class ConnectionRenderTest(unittest.TestCase):
                     capabilities.write_bytes(original_capabilities)
             return result, ([projected_values] if forwarded else list(yaml.safe_load_all(result.stdout))) if result.returncode == 0 else []
 
+    def test_render_script_publishes_full_offline_helmfile_output(self):
+        # Same checked repo-owned chart fixture, but exercise the actual render.sh.
+        (self.source / 'scripts').mkdir(exist_ok=True)
+        shutil.copy2(ROOT / 'scripts/render.sh', self.source / 'scripts/render.sh')
+        helmfile_link = self.isolation / 'bin/helmfile'
+        if not helmfile_link.exists():
+            helmfile_link.symlink_to(self.helmfile)
+        with tempfile.TemporaryDirectory(dir=self.work) as run:
+            folder = Path(run)
+            values = folder / 'values.json'
+            secrets = folder / 'secrets.json'
+            values.write_text(json.dumps(self.values))
+            secrets.write_text(json.dumps(self.secrets))
+            env = {'PATH': f'{self.isolation / "bin"}:/usr/bin:/bin',
+                   'HOME': str(self.isolation / 'home'), 'KUBECONFIG': str(self.isolation / 'no-kubeconfig'),
+                   'HELM_CACHE_HOME': str(self.isolation / 'cache'),
+                   'HELM_CONFIG_HOME': str(self.isolation / 'config'),
+                   'HELM_DATA_HOME': str(self.isolation / 'data'),
+                   'HELM_PLUGINS': str(self.isolation / 'plugins'),
+                   'HELMFILE_CACHE_HOME': str(self.isolation / 'helmfile-cache'),
+                   'HELMFILE_DISABLE_RUNNER_UNIQUE_ID': 'true',
+                   'PHOENIX_BYOC_NAMESPACE': 'phoenix',
+                   'PHOENIX_BYOC_VALUES_FILE': str(values),
+                   'PHOENIX_BYOC_SECRETS_FILE': str(secrets),
+                   'PHOENIX_AGENTFS_RETAINED_IMAGES_JSON': '[]',
+                   'HTTPS_PROXY': 'http://127.0.0.1:9', 'HTTP_PROXY': 'http://127.0.0.1:9', 'NO_PROXY': ''}
+            result = subprocess.run(['/bin/bash', str(self.source / 'scripts/render.sh')],
+                                    cwd=self.source, env=env, capture_output=True, text=True, timeout=120)
+            self.assertEqual(result.returncode, 0, 'offline full render failed (diagnostics withheld)')
+            published = self.source / '.rendered/all.yaml'
+            expected, expected_docs = self.render(all_releases=True)
+            self.assertEqual(expected.returncode, 0, 'offline fixture reference render failed')
+            actual_docs = [doc for doc in yaml.safe_load_all(published.read_text()) if doc]
+            self.assertGreater(len(actual_docs), 50)
+            self.assertEqual(actual_docs, [doc for doc in expected_docs if doc])
+            self.assertEqual(published.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(list(published.parent.glob('.render.*')), [])
+
     def objects(self, docs, kind):
         return [doc for doc in docs if isinstance(doc, dict) and doc.get('kind') == kind]
 
