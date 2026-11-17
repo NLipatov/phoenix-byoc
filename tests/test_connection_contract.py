@@ -69,6 +69,38 @@ class ConnectionContractTest(unittest.TestCase):
         (self.agents / 'unexpected.json').write_text('{}')
         self.rejects('extra_member')
 
+    def test_directory_membership_rejects_first_extra_without_exhausting_stream(self):
+        original = contract.os.scandir
+        target = self.agents
+        class LazyEntries:
+            closed = False
+            count = 0
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                self.closed = True
+
+            def __iter__(self):
+                return self
+
+            def __next__(self):
+                self.count += 1
+                if self.count == 1:
+                    return type('Entry', (), {'name': 'manifest.json'})()
+                if self.count == 2:
+                    return type('Entry', (), {'name': 'unexpected.json'})()
+                raise AssertionError('unbounded directory scan')
+
+        stream = LazyEntries()
+        def scandir(path):
+            return stream if Path(path) == target else original(path)
+        with patch.object(contract.os, 'scandir', side_effect=scandir):
+            self.rejects('extra_member')
+        self.assertTrue(stream.closed)
+        self.assertEqual(stream.count, 2)
+
     def test_manifest_path_escape(self):
         lock = self.root / 'contracts/native-provider-inputs.lock.json'
         data = json.loads(lock.read_text())

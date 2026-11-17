@@ -165,13 +165,17 @@ def load_contract(root: Path) -> ContractBundle:
                 manifest.get('deliveryVersion') != '1'):
             raise ContractError('version_mismatch', label)
         folder = root / directory
+        expected_names = set(expected) | {'manifest.json'}
+        seen = set()
         try:
-            actual = {p.name for p in folder.iterdir()}
+            with os.scandir(folder) as entries:
+                for entry in entries:
+                    if entry.name not in expected_names:
+                        raise ContractError('extra_member', label)
+                    seen.add(entry.name)
         except OSError:
             raise ContractError('unsafe_path', label) from None
-        if actual - (set(expected) | {'manifest.json'}):
-            raise ContractError('extra_member', label)
-        if (set(expected) | {'manifest.json'}) - actual:
+        if expected_names - seen:
             raise ContractError('missing_member', label)
         digests[owner_name] = {}
         paths[owner_name] = {}
