@@ -57,8 +57,8 @@ if [[ ! "$requested_namespace" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]]; then
 fi
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-if [[ "$discard_redis_state" == "true" ]] && ! command -v python3 >/dev/null 2>&1; then
-  echo "ERROR: --discard-redis-state requires Python 3 (standard library only)." >&2
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "ERROR: installation input protection requires Python 3 (standard library only)." >&2
   exit 1
 fi
 values_file=$requested_values
@@ -310,6 +310,7 @@ ensure_remote_ssh_encryption_secret() (
   fi
 
   if ! kubectl get namespace "$namespace" >/dev/null 2>&1; then
+    check_install_inputs
     kubectl create namespace "$namespace" >/dev/null
   fi
 
@@ -326,6 +327,7 @@ ensure_remote_ssh_encryption_secret() (
     return 0
   fi
 
+  check_install_inputs
   printf '%s' "$expected_key" | kubectl -n "$namespace" create secret generic "$secret_name" \
     --from-file="$key_field=/dev/stdin" >/dev/null
   echo "Created Gateway encryption Secret $namespace/$secret_name."
@@ -342,6 +344,25 @@ export PHOENIX_BYOC_SECRETS_FILE="$secrets_file"
 context=$(kubectl config current-context)
 export PHOENIX_AGENTFS_CONTEXT="$context"
 
+# Snapshot only after legitimate local generation. The private guard is not a
+# release/capability token and never publishes credential-derived fingerprints.
+input_guard_dir=$(mktemp -d "${TMPDIR:-/tmp}/phoenix-install-inputs.XXXXXXXX")
+chmod 700 "$input_guard_dir"
+service_account_manifest=""
+cleanup_install_files() {
+  [[ -z "$service_account_manifest" ]] || rm -f -- "$service_account_manifest"
+  rm -rf -- "$input_guard_dir"
+}
+trap cleanup_install_files EXIT
+trap 'exit 1' HUP INT TERM
+install_input_guard() {
+  python3 -I -B "$repo_root/scripts/install-input-guard.py" "$1" "$input_guard_dir" "$repo_root"
+}
+check_install_inputs() {
+  install_input_guard check
+}
+install_input_guard capture
+
 "$repo_root/scripts/preflight.sh"
 agentfs_enabled=$("$repo_root/scripts/agentfs.sh" enabled)
 if [[ "$agentfs_enabled" == "true" ]]; then
@@ -349,15 +370,20 @@ if [[ "$agentfs_enabled" == "true" ]]; then
   PHOENIX_AGENTFS_RETAINED_IMAGES_JSON=$("$repo_root/scripts/agentfs.sh" retain)
   export PHOENIX_AGENTFS_RETAINED_IMAGES_JSON
 fi
+# Retention is the one intentional environment update between the two gates.
+install_input_guard retained
 "$repo_root/scripts/render.sh"
+install_input_guard seal
 
 if [[ "$discard_redis_state" == "true" ]]; then
-  python3 "$repo_root/scripts/upgrade-poc-cache.py" \
+  check_install_inputs
+  python3 -I -B "$repo_root/scripts/upgrade-poc-cache.py" \
     --namespace "$requested_namespace" --context "$context" \
     --rendered "$repo_root/.rendered/all.yaml" --discard-redis-state
 fi
 "$repo_root/scripts/check-cache-upgrade.sh" "$requested_namespace" "$repo_root/.rendered/all.yaml"
 
+check_install_inputs
 ensure_remote_ssh_encryption_secret "$requested_namespace" "$secrets_file"
 
 namespace=$requested_namespace
@@ -384,6 +410,7 @@ cache_dir="${HELMFILE_CACHE_HOME:-$repo_root/.tmp/helmfile-cache}"
 
 if [[ "$agentfs_enabled" == "true" ]]; then
   if [[ "$("$repo_root/scripts/agentfs.sh" managed)" == "true" ]]; then
+    check_install_inputs
     (
       cd "$repo_root"
       HELMFILE_CACHE_HOME="$cache_dir" helmfile --selector name=fuse-device-plugin sync
@@ -396,6 +423,7 @@ if [[ "$agentfs_enabled" == "true" ]]; then
   "$repo_root/scripts/agentfs.sh" capacity
 fi
 
+check_install_inputs
 (
   cd "$repo_root"
   HELMFILE_CACHE_HOME="$cache_dir" helmfile sync
@@ -407,7 +435,7 @@ fi
 # ECR refresh release can create and populate its managed pull Secret first.
 if [[ -n "$pull_secrets" ]]; then
   service_account_manifest=$(mktemp)
-  trap 'rm -f "$service_account_manifest"' EXIT
+  chmod 600 "$service_account_manifest"
   {
     echo "apiVersion: v1"
     echo "kind: ServiceAccount"
@@ -419,9 +447,11 @@ if [[ -n "$pull_secrets" ]]; then
       echo "  - name: $secret_name"
     done <<<"$pull_secrets"
   } >"$service_account_manifest"
+  check_install_inputs
   kubectl apply -f "$service_account_manifest"
 fi
 
+check_install_inputs
 "$repo_root/scripts/verify.sh" \
   --namespace "$namespace" \
   --values "$values_file" \
