@@ -1,0 +1,11 @@
+{
+  "formatVersion": 1,
+  "contractVersion": "1",
+  "deliveryVersion": "1",
+  "sourceRevision": "211274896e861d392c560ccb346078c5acc58087",
+  "files": {
+    "README.md": "72de06e05f8af768c5c56235960114234f87e4eb8c8bfae0e11ed235013eed26",
+    "contract.json": "06106175aab710d1ae1972e92c9323449105086bdc6016bbe552641905c885ac",
+    "fixtures.json": "5f98722a990161f943ae47e3f0c06143fd5832bb1ef9b09e67488b5c943b12be"
+  }
+}

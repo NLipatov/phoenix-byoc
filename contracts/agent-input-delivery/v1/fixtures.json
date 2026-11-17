@@ -1,0 +1,62 @@
+{
+  "formatVersion": 1,
+  "vectors": [
+    {
+      "expected": {
+        "capability": "blocked",
+        "env": {
+          "DEPLOYMENT_LABEL": "synthetic"
+        },
+        "secretNames": [
+          "TEST_KEY"
+        ],
+        "semantic": true,
+        "structural": true
+      },
+      "id": "generic-only",
+      "input": {
+        "deliveryPolicy": "{\"version\":1,\"allowedEnterpriseIds\":[\"123e4567-e89b-42d3-a456-426614174000\"]}",
+        "enterpriseId": "123e4567-e89b-42d3-a456-426614174000",
+        "envJson": "{\"DEPLOYMENT_LABEL\":\"synthetic\"}",
+        "files": {
+          "PHOENIX_AGENT_SECRET_TEST_KEY": "synthetic-not-a-credential"
+        }
+      },
+      "kind": "delivery"
+    },
+    {
+      "expected": {
+        "capability": "blocked",
+        "code": "agent_inputs_invalid",
+        "path": "delivery-policy.json",
+        "semantic": false,
+        "structural": true
+      },
+      "id": "wrong-enterprise",
+      "input": {
+        "deliveryPolicy": "{\"version\":1,\"allowedEnterpriseIds\":[\"123e4567-e89b-42d3-a456-426614174000\"]}",
+        "enterpriseId": "123e4567-e89b-42d3-a456-426614174001",
+        "envJson": "{}",
+        "files": {}
+      },
+      "kind": "delivery"
+    },
+    {
+      "expected": {
+        "capability": "blocked",
+        "code": "agent_inputs_invalid",
+        "path": "delivery-policy.json",
+        "semantic": false,
+        "structural": false
+      },
+      "id": "obsolete-image-field",
+      "input": {
+        "deliveryPolicy": "{\"version\":1,\"allowedEnterpriseIds\":[\"123e4567-e89b-42d3-a456-426614174000\"],\"allowedAgentDigests\":[]}",
+        "enterpriseId": "123e4567-e89b-42d3-a456-426614174000",
+        "envJson": "{}",
+        "files": {}
+      },
+      "kind": "delivery"
+    }
+  ]
+}

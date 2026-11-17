@@ -1,0 +1,14 @@
+{
+  "formatVersion": 1,
+  "contractVersion": "1",
+  "deliveryVersion": "1",
+  "piVersion": "1.4.0",
+  "sourceRevision": "c95bc5d969c3a684c80f8eebfffa9920810ea2d492f27a355d5f10f3b3b71bae",
+  "files": {
+    "README.md": "71f9939df289084aadd481fe4808f8115b55763ed4738a5078d551157b17acbe",
+    "capabilities.json": "99064e65da8fd238eb0e9146b25953804ab70617034573786943fbf0e1e559de",
+    "semantic-vectors.json": "500e27581fb87321bb87dd8b599a4150ba27eaab4a9f385dec4ae52fba1b6092",
+    "transport-vectors.json": "cf466d903722987ff51574795c32defa9ec5c5327c511aa0821568a4058b4149",
+    "values.schema.json": "0556b9bc85894f2984a4428afe61000b2707c183ef0a1e3ab55d77191ef16b93"
+  }
+}

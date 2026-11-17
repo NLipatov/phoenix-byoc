@@ -1,0 +1,63 @@
+{
+  "formatVersion": 1,
+  "owners": {
+    "agents": {
+      "path": "contracts/llm-connections/v1",
+      "supplierCommit": "0fa8f1a41b314c76b3a8608ccdc64853f930c8ec",
+      "archiveSha256": "4f3e692d90550e2a8ce1a9cbf9865bbcc0cd6262c5b2b7b766095dbc7417ed5d",
+      "manifestSha256": "1867e376520075035542dbdbb5078479546e7746900d8e480872f88448a2a91f",
+      "manifest": {
+        "formatVersion": 1,
+        "contractVersion": "1",
+        "deliveryVersion": "1",
+        "piVersion": "1.4.0",
+        "sourceRevision": "c95bc5d969c3a684c80f8eebfffa9920810ea2d492f27a355d5f10f3b3b71bae",
+        "files": {
+          "README.md": "71f9939df289084aadd481fe4808f8115b55763ed4738a5078d551157b17acbe",
+          "capabilities.json": "99064e65da8fd238eb0e9146b25953804ab70617034573786943fbf0e1e559de",
+          "semantic-vectors.json": "500e27581fb87321bb87dd8b599a4150ba27eaab4a9f385dec4ae52fba1b6092",
+          "transport-vectors.json": "cf466d903722987ff51574795c32defa9ec5c5327c511aa0821568a4058b4149",
+          "values.schema.json": "0556b9bc85894f2984a4428afe61000b2707c183ef0a1e3ab55d77191ef16b93"
+        }
+      },
+      "files": {
+        "README.md": "71f9939df289084aadd481fe4808f8115b55763ed4738a5078d551157b17acbe",
+        "capabilities.json": "99064e65da8fd238eb0e9146b25953804ab70617034573786943fbf0e1e559de",
+        "semantic-vectors.json": "500e27581fb87321bb87dd8b599a4150ba27eaab4a9f385dec4ae52fba1b6092",
+        "transport-vectors.json": "cf466d903722987ff51574795c32defa9ec5c5327c511aa0821568a4058b4149",
+        "values.schema.json": "0556b9bc85894f2984a4428afe61000b2707c183ef0a1e3ab55d77191ef16b93"
+      },
+      "roles": {
+        "schema": "values.schema.json",
+        "vectors": "semantic-vectors.json",
+        "capabilities": "capabilities.json"
+      }
+    },
+    "engine": {
+      "path": "contracts/agent-input-delivery/v1",
+      "supplierCommit": "5f0bbdfb3b54b76505c85e6733e3b01b3db7dba0",
+      "archiveSha256": "33cce9d9b9e663505cd89a32601f38f2cbbad44de100f1abe646290fb7693d1d",
+      "manifestSha256": "95be7744ddaa32dca794e7d96b9a24ed63ff4e584be90448d109a94c10d97ca2",
+      "manifest": {
+        "formatVersion": 1,
+        "contractVersion": "1",
+        "deliveryVersion": "1",
+        "sourceRevision": "211274896e861d392c560ccb346078c5acc58087",
+        "files": {
+          "README.md": "72de06e05f8af768c5c56235960114234f87e4eb8c8bfae0e11ed235013eed26",
+          "contract.json": "06106175aab710d1ae1972e92c9323449105086bdc6016bbe552641905c885ac",
+          "fixtures.json": "5f98722a990161f943ae47e3f0c06143fd5832bb1ef9b09e67488b5c943b12be"
+        }
+      },
+      "files": {
+        "README.md": "72de06e05f8af768c5c56235960114234f87e4eb8c8bfae0e11ed235013eed26",
+        "contract.json": "06106175aab710d1ae1972e92c9323449105086bdc6016bbe552641905c885ac",
+        "fixtures.json": "5f98722a990161f943ae47e3f0c06143fd5832bb1ef9b09e67488b5c943b12be"
+      },
+      "roles": {
+        "transport": "contract.json",
+        "vectors": "fixtures.json"
+      }
+    }
+  }
+}

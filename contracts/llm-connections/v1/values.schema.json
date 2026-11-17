@@ -1,0 +1,1684 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://phoenix.invalid/contracts/llm-connections/v1/values.schema.json",
+  "title": "Phoenix named LLM and generic input authoring v1 (mergeable chart fragment)",
+  "type": "object",
+  "properties": {
+    "llm": {
+      "type": "object",
+      "properties": {
+        "CONFIG_VERSION": {
+          "const": "1"
+        },
+        "connections": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]{0,47}$"
+          },
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "$ref": "#/definitions/llmConnectionsV1_bedrock-anthropic"
+              },
+              {
+                "$ref": "#/definitions/llmConnectionsV1_vertex-anthropic"
+              },
+              {
+                "$ref": "#/definitions/llmConnectionsV1_vertex-gemini"
+              },
+              {
+                "$ref": "#/definitions/llmConnectionsV1_azure-anthropic"
+              },
+              {
+                "$ref": "#/definitions/llmConnectionsV1_azure-openai"
+              },
+              {
+                "$ref": "#/definitions/llmConnectionsV1_portkey-anthropic"
+              },
+              {
+                "$ref": "#/definitions/llmConnectionsV1_portkey-openai"
+              },
+              {
+                "$ref": "#/definitions/llmConnectionsV1_portkey-gemini"
+              },
+              {
+                "$ref": "#/definitions/llmConnectionsV1_portkey-mixed"
+              },
+              {
+                "$ref": "#/definitions/llmConnectionsV1_direct-anthropic"
+              },
+              {
+                "$ref": "#/definitions/llmConnectionsV1_direct-openai"
+              },
+              {
+                "$ref": "#/definitions/llmConnectionsV1_direct-gemini"
+              },
+              {
+                "$ref": "#/definitions/llmConnectionsV1_custom-openai-compatible"
+              },
+              {
+                "$ref": "#/definitions/llmConnectionsV1_custom-anthropic-compatible"
+              }
+            ]
+          }
+        },
+        "env": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/definitions/llmConnectionsV1_plainDestination"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^\\S(?:.*\\S)?$"
+          },
+          "description": "Non-secret connection inputs only; no process environment scanning.",
+          "maxProperties": 256
+        },
+        "secretEnv": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/definitions/llmConnectionsV1_secretDestination"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 253,
+                "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$",
+                "not": {
+                  "pattern": "[^a-z0-9.-]"
+                }
+              },
+              "key": {
+                "type": "string",
+                "maxLength": 253,
+                "pattern": "^[-._a-zA-Z0-9]+$",
+                "not": {
+                  "anyOf": [
+                    {
+                      "const": "."
+                    },
+                    {
+                      "pattern": "^\\.\\."
+                    },
+                    {
+                      "pattern": "[^-._a-zA-Z0-9]"
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "name",
+              "key"
+            ],
+            "additionalProperties": false
+          },
+          "maxProperties": 128
+        },
+        "platformEnv": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/llmConnectionsV1_plainDestination"
+          },
+          "description": "Explicit runtime-injected names subject to a trusted platform allowlist; never engine os.Environ().",
+          "maxItems": 256
+        }
+      },
+      "required": [
+        "CONFIG_VERSION",
+        "connections"
+      ],
+      "additionalProperties": false,
+      "minProperties": 2
+    },
+    "agentInputDelivery": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "allowedEnterpriseIds": {
+          "type": "array",
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          }
+        },
+        "env": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/definitions/llmConnectionsV1_plainDestination"
+          },
+          "additionalProperties": {
+            "type": "string"
+          },
+          "maxProperties": 256
+        },
+        "secretEnv": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/definitions/llmConnectionsV1_secretDestination"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 253,
+                "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$",
+                "not": {
+                  "pattern": "[^a-z0-9.-]"
+                }
+              },
+              "key": {
+                "type": "string",
+                "maxLength": 253,
+                "pattern": "^[-._a-zA-Z0-9]+$",
+                "not": {
+                  "anyOf": [
+                    {
+                      "const": "."
+                    },
+                    {
+                      "pattern": "^\\.\\."
+                    },
+                    {
+                      "pattern": "[^-._a-zA-Z0-9]"
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "name",
+              "key"
+            ],
+            "additionalProperties": false
+          },
+          "maxProperties": 128
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            },
+            "required": [
+              "enabled"
+            ]
+          },
+          "then": {
+            "required": [
+              "allowedEnterpriseIds"
+            ],
+            "properties": {
+              "allowedEnterpriseIds": {
+                "minItems": 1
+              }
+            }
+          },
+          "else": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "env"
+                  ],
+                  "properties": {
+                    "env": {
+                      "minProperties": 1
+                    }
+                  }
+                },
+                {
+                  "required": [
+                    "secretEnv"
+                  ],
+                  "properties": {
+                    "secretEnv": {
+                      "minProperties": 1
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
+  "additionalProperties": true,
+  "definitions": {
+    "llmConnectionsV1_headers": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[!#$%&'*+.^_`|~0-9A-Za-z-]+$",
+        "not": {
+          "anyOf": [
+            {
+              "pattern": "^[aA][uU][tT][hH][oO][rR][iI][zZ][aA][tT][iI][oO][nN]$"
+            },
+            {
+              "pattern": "^[pP][rR][oO][xX][yY]-[aA][uU][tT][hH][oO][rR][iI][zZ][aA][tT][iI][oO][nN]$"
+            },
+            {
+              "pattern": "^[xX]-[aA][pP][iI]-[kK][eE][yY]$"
+            },
+            {
+              "pattern": "^[aA][pP][iI]-[kK][eE][yY]$"
+            },
+            {
+              "pattern": "^[xX]-[pP][oO][rR][tT][kK][eE][yY]-[aA][pP][iI]-[kK][eE][yY]$"
+            },
+            {
+              "pattern": "^[hH][oO][sS][tT]$"
+            },
+            {
+              "pattern": "^[cC][oO][oO][kK][iI][eE]$"
+            },
+            {
+              "pattern": "^[aA][nN][tT][hH][rR][oO][pP][iI][cC]-[vV][eE][rR][sS][iI][oO][nN]$"
+            },
+            {
+              "pattern": "^[aA][nN][tT][hH][rR][oO][pP][iI][cC]-[bB][eE][tT][aA]$"
+            },
+            {
+              "pattern": "^[aA][pP][iI]-[vV][eE][rR][sS][iI][oO][nN]$"
+            }
+          ]
+        }
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^(?:\\$[A-Z][A-Z0-9_]*|[^$!\\x00-\\x1f\\x7f][^$\\x00-\\x1f\\x7f]*)$",
+        "description": "Non-secret literal or whole-value $ENV_NAME reference; no commands or composite interpolation in this draft."
+      }
+    },
+    "llmConnectionsV1_connection": {
+      "type": "object",
+      "properties": {
+        "PLATFORM": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
+        },
+        "PUBLISHER": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
+        },
+        "NATIVE_PROVIDER": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$"
+        },
+        "API": {
+          "enum": [
+            "anthropic-messages",
+            "bedrock-converse-stream",
+            "google-vertex",
+            "google-generative-ai",
+            "openai-responses",
+            "openai-completions",
+            "azure-openai-responses"
+          ]
+        },
+        "BASE_URL": {
+          "type": "string",
+          "pattern": "^https://[^\\s/@?#]+(?:/[^\\s?#]*)?$"
+        },
+        "AUTH_MODE": {
+          "enum": [
+            "api-key",
+            "aws-workload",
+            "gcp-workload",
+            "azure-workload"
+          ]
+        },
+        "API_KEY_ENV": {
+          "$ref": "#/definitions/llmConnectionsV1_secretDestination"
+        },
+        "NATIVE_ENV_REFS_JSON": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "not": {
+              "anyOf": [
+                {
+                  "pattern": "^PHOENIX_LLM_"
+                },
+                {
+                  "enum": [
+                    "PHOENIX_AGENT_INPUTS_DIR",
+                    "PHOENIX_AGENT_SECRET_NAMES_JSON"
+                  ]
+                }
+              ]
+            }
+          },
+          "additionalProperties": {
+            "$ref": "#/definitions/llmConnectionsV1_plainDestination"
+          }
+        },
+        "HEADERS_JSON": {
+          "$ref": "#/definitions/llmConnectionsV1_headers"
+        }
+      },
+      "required": [
+        "PLATFORM",
+        "PUBLISHER",
+        "AUTH_MODE"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "AUTH_MODE": {
+                "const": "api-key"
+              }
+            },
+            "required": [
+              "AUTH_MODE"
+            ]
+          },
+          "then": {
+            "required": [
+              "API_KEY_ENV"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "AUTH_MODE": {
+                "not": {
+                  "const": "api-key"
+                }
+              }
+            },
+            "required": [
+              "AUTH_MODE"
+            ]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "API_KEY_ENV"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "llmConnectionsV1_bedrock-anthropic": {
+      "title": "bedrock-anthropic",
+      "description": "Named connection authoring; existing host profiles and modelIds supply the model target and trusted catalog association. Runtime capability is separately gated.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/llmConnectionsV1_connection"
+        },
+        {
+          "properties": {
+            "PLATFORM": {
+              "const": "aws-bedrock"
+            },
+            "PUBLISHER": {
+              "const": "anthropic"
+            },
+            "API": {
+              "enum": [
+                "bedrock-converse-stream"
+              ]
+            },
+            "AUTH_MODE": {
+              "enum": [
+                "aws-workload",
+                "api-key"
+              ]
+            },
+            "NATIVE_PROVIDER": {
+              "const": "amazon-bedrock"
+            }
+          }
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "BASE_URL"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "required": [
+            "NATIVE_ENV_REFS_JSON"
+          ],
+          "properties": {
+            "NATIVE_ENV_REFS_JSON": {
+              "type": "object",
+              "properties": {
+                "AWS_REGION": {
+                  "$ref": "#/definitions/llmConnectionsV1_plainDestination"
+                },
+                "AWS_ROLE_ARN": {
+                  "$ref": "#/definitions/llmConnectionsV1_plainDestination"
+                },
+                "AWS_WEB_IDENTITY_TOKEN_FILE": {
+                  "$ref": "#/definitions/llmConnectionsV1_plainDestination"
+                },
+                "AWS_ROLE_SESSION_NAME": {
+                  "$ref": "#/definitions/llmConnectionsV1_plainDestination"
+                },
+                "AWS_CONTAINER_CREDENTIALS_FULL_URI": {
+                  "$ref": "#/definitions/llmConnectionsV1_plainDestination"
+                },
+                "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI": {
+                  "$ref": "#/definitions/llmConnectionsV1_plainDestination"
+                },
+                "AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE": {
+                  "$ref": "#/definitions/llmConnectionsV1_plainDestination"
+                }
+              },
+              "required": [
+                "AWS_REGION"
+              ],
+              "additionalProperties": false,
+              "dependencies": {
+                "AWS_ROLE_ARN": [
+                  "AWS_WEB_IDENTITY_TOKEN_FILE"
+                ],
+                "AWS_WEB_IDENTITY_TOKEN_FILE": [
+                  "AWS_ROLE_ARN"
+                ],
+                "AWS_ROLE_SESSION_NAME": [
+                  "AWS_ROLE_ARN"
+                ]
+              },
+              "allOf": [
+                {
+                  "not": {
+                    "required": [
+                      "AWS_CONTAINER_CREDENTIALS_FULL_URI",
+                      "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"
+                    ]
+                  }
+                },
+                {
+                  "if": {
+                    "required": [
+                      "AWS_ROLE_ARN"
+                    ]
+                  },
+                  "then": {
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "AWS_CONTAINER_CREDENTIALS_FULL_URI"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "required": [
+                      "AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE"
+                    ]
+                  },
+                  "then": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "AWS_CONTAINER_CREDENTIALS_FULL_URI"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "AUTH_MODE": {
+                "const": "api-key"
+              }
+            },
+            "required": [
+              "AUTH_MODE"
+            ]
+          },
+          "then": {
+            "properties": {
+              "NATIVE_ENV_REFS_JSON": {
+                "type": "object",
+                "properties": {
+                  "AWS_REGION": {
+                    "$ref": "#/definitions/llmConnectionsV1_plainDestination"
+                  }
+                },
+                "required": [
+                  "AWS_REGION"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      ]
+    },
+    "llmConnectionsV1_vertex-anthropic": {
+      "title": "vertex-anthropic",
+      "description": "Named connection authoring; existing host profiles and modelIds supply the model target and trusted catalog association. Runtime capability is separately gated.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/llmConnectionsV1_connection"
+        },
+        {
+          "properties": {
+            "PLATFORM": {
+              "const": "gcp-vertex"
+            },
+            "PUBLISHER": {
+              "const": "anthropic"
+            },
+            "API": {
+              "enum": [
+                "anthropic-messages"
+              ]
+            },
+            "AUTH_MODE": {
+              "enum": [
+                "gcp-workload"
+              ]
+            },
+            "NATIVE_PROVIDER": {
+              "const": "anthropic-vertex"
+            }
+          }
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "BASE_URL"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "required": [
+            "NATIVE_ENV_REFS_JSON"
+          ],
+          "properties": {
+            "NATIVE_ENV_REFS_JSON": {
+              "type": "object",
+              "properties": {
+                "ANTHROPIC_VERTEX_PROJECT_ID": {
+                  "$ref": "#/definitions/llmConnectionsV1_plainDestination"
+                },
+                "CLOUD_ML_REGION": {
+                  "$ref": "#/definitions/llmConnectionsV1_plainDestination"
+                }
+              },
+              "required": [
+                "ANTHROPIC_VERTEX_PROJECT_ID",
+                "CLOUD_ML_REGION"
+              ],
+              "additionalProperties": false
+            }
+          }
+        }
+      ]
+    },
+    "llmConnectionsV1_vertex-gemini": {
+      "title": "vertex-gemini",
+      "description": "Named connection authoring; existing host profiles and modelIds supply the model target and trusted catalog association. Runtime capability is separately gated.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/llmConnectionsV1_connection"
+        },
+        {
+          "properties": {
+            "PLATFORM": {
+              "const": "gcp-vertex"
+            },
+            "PUBLISHER": {
+              "const": "google"
+            },
+            "API": {
+              "enum": [
+                "google-vertex"
+              ]
+            },
+            "AUTH_MODE": {
+              "enum": [
+                "gcp-workload"
+              ]
+            },
+            "NATIVE_PROVIDER": {
+              "const": "google-vertex"
+            }
+          }
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "BASE_URL"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "required": [
+            "NATIVE_ENV_REFS_JSON"
+          ],
+          "properties": {
+            "NATIVE_ENV_REFS_JSON": {
+              "type": "object",
+              "properties": {
+                "GOOGLE_CLOUD_PROJECT": {
+                  "$ref": "#/definitions/llmConnectionsV1_plainDestination"
+                },
+                "GOOGLE_CLOUD_LOCATION": {
+                  "$ref": "#/definitions/llmConnectionsV1_plainDestination"
+                }
+              },
+              "required": [
+                "GOOGLE_CLOUD_PROJECT",
+                "GOOGLE_CLOUD_LOCATION"
+              ],
+              "additionalProperties": false
+            }
+          }
+        }
+      ]
+    },
+    "llmConnectionsV1_azure-anthropic": {
+      "title": "azure-anthropic",
+      "description": "Named connection authoring; existing host profiles and modelIds supply the model target and trusted catalog association. Runtime capability is separately gated.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/llmConnectionsV1_connection"
+        },
+        {
+          "properties": {
+            "PLATFORM": {
+              "const": "azure-foundry"
+            },
+            "PUBLISHER": {
+              "const": "anthropic"
+            },
+            "API": {
+              "enum": [
+                "anthropic-messages"
+              ]
+            },
+            "AUTH_MODE": {
+              "enum": [
+                "api-key",
+                "azure-workload"
+              ]
+            },
+            "NATIVE_PROVIDER": {
+              "const": "anthropic"
+            }
+          }
+        },
+        {
+          "required": [
+            "BASE_URL"
+          ]
+        },
+        {
+          "properties": {
+            "NATIVE_ENV_REFS_JSON": {
+              "type": "object",
+              "properties": {
+                "AZURE_TENANT_ID": {
+                  "$ref": "#/definitions/llmConnectionsV1_plainDestination"
+                },
+                "AZURE_CLIENT_ID": {
+                  "$ref": "#/definitions/llmConnectionsV1_plainDestination"
+                },
+                "AZURE_FEDERATED_TOKEN_FILE": {
+                  "$ref": "#/definitions/llmConnectionsV1_plainDestination"
+                }
+              },
+              "required": [
+                "AZURE_TENANT_ID",
+                "AZURE_CLIENT_ID",
+                "AZURE_FEDERATED_TOKEN_FILE"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "AUTH_MODE": {
+                "const": "azure-workload"
+              }
+            },
+            "required": [
+              "AUTH_MODE"
+            ]
+          },
+          "then": {
+            "required": [
+              "NATIVE_ENV_REFS_JSON"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "AUTH_MODE": {
+                "const": "api-key"
+              }
+            },
+            "required": [
+              "AUTH_MODE"
+            ]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "NATIVE_ENV_REFS_JSON"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "llmConnectionsV1_azure-openai": {
+      "title": "azure-openai",
+      "description": "Named connection authoring; existing host profiles and modelIds supply the model target and trusted catalog association. Runtime capability is separately gated.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/llmConnectionsV1_connection"
+        },
+        {
+          "properties": {
+            "PLATFORM": {
+              "const": "azure-foundry"
+            },
+            "PUBLISHER": {
+              "const": "openai"
+            },
+            "API": {
+              "enum": [
+                "azure-openai-responses",
+                "openai-completions"
+              ]
+            },
+            "AUTH_MODE": {
+              "enum": [
+                "api-key",
+                "azure-workload"
+              ]
+            },
+            "NATIVE_PROVIDER": {
+              "const": "azure"
+            }
+          }
+        },
+        {
+          "required": [
+            "BASE_URL"
+          ]
+        },
+        {
+          "properties": {
+            "NATIVE_ENV_REFS_JSON": {
+              "type": "object",
+              "properties": {
+                "AZURE_TENANT_ID": {
+                  "$ref": "#/definitions/llmConnectionsV1_plainDestination"
+                },
+                "AZURE_CLIENT_ID": {
+                  "$ref": "#/definitions/llmConnectionsV1_plainDestination"
+                },
+                "AZURE_FEDERATED_TOKEN_FILE": {
+                  "$ref": "#/definitions/llmConnectionsV1_plainDestination"
+                }
+              },
+              "required": [
+                "AZURE_TENANT_ID",
+                "AZURE_CLIENT_ID",
+                "AZURE_FEDERATED_TOKEN_FILE"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "AUTH_MODE": {
+                "const": "azure-workload"
+              }
+            },
+            "required": [
+              "AUTH_MODE"
+            ]
+          },
+          "then": {
+            "required": [
+              "NATIVE_ENV_REFS_JSON"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "AUTH_MODE": {
+                "const": "api-key"
+              }
+            },
+            "required": [
+              "AUTH_MODE"
+            ]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "NATIVE_ENV_REFS_JSON"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "required": [
+            "API"
+          ]
+        }
+      ]
+    },
+    "llmConnectionsV1_portkey-anthropic": {
+      "title": "portkey-anthropic",
+      "description": "Named connection authoring; existing host profiles and modelIds supply the model target and trusted catalog association. Runtime capability is separately gated.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/llmConnectionsV1_connection"
+        },
+        {
+          "properties": {
+            "PLATFORM": {
+              "const": "portkey"
+            },
+            "PUBLISHER": {
+              "const": "anthropic"
+            },
+            "API": {
+              "enum": [
+                "openai-responses",
+                "openai-completions",
+                "anthropic-messages"
+              ]
+            },
+            "AUTH_MODE": {
+              "enum": [
+                "api-key"
+              ]
+            }
+          }
+        },
+        {
+          "required": [
+            "BASE_URL"
+          ]
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "NATIVE_PROVIDER"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "required": [
+            "API"
+          ]
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "NATIVE_ENV_REFS_JSON"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "llmConnectionsV1_portkey-openai": {
+      "title": "portkey-openai",
+      "description": "Named connection authoring; existing host profiles and modelIds supply the model target and trusted catalog association. Runtime capability is separately gated.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/llmConnectionsV1_connection"
+        },
+        {
+          "properties": {
+            "PLATFORM": {
+              "const": "portkey"
+            },
+            "PUBLISHER": {
+              "const": "openai"
+            },
+            "API": {
+              "enum": [
+                "openai-responses",
+                "openai-completions"
+              ]
+            },
+            "AUTH_MODE": {
+              "enum": [
+                "api-key"
+              ]
+            }
+          }
+        },
+        {
+          "required": [
+            "BASE_URL"
+          ]
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "NATIVE_PROVIDER"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "required": [
+            "API"
+          ]
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "NATIVE_ENV_REFS_JSON"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "llmConnectionsV1_portkey-gemini": {
+      "title": "portkey-gemini",
+      "description": "Named connection authoring; existing host profiles and modelIds supply the model target and trusted catalog association. Runtime capability is separately gated.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/llmConnectionsV1_connection"
+        },
+        {
+          "properties": {
+            "PLATFORM": {
+              "const": "portkey"
+            },
+            "PUBLISHER": {
+              "const": "google"
+            },
+            "API": {
+              "enum": [
+                "openai-responses",
+                "openai-completions"
+              ]
+            },
+            "AUTH_MODE": {
+              "enum": [
+                "api-key"
+              ]
+            }
+          }
+        },
+        {
+          "required": [
+            "BASE_URL"
+          ]
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "NATIVE_PROVIDER"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "required": [
+            "API"
+          ]
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "NATIVE_ENV_REFS_JSON"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "llmConnectionsV1_portkey-mixed": {
+      "title": "portkey-mixed",
+      "description": "Named connection authoring; existing host profiles and modelIds supply the model target and trusted catalog association. Runtime capability is separately gated.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/llmConnectionsV1_connection"
+        },
+        {
+          "properties": {
+            "PLATFORM": {
+              "const": "portkey"
+            },
+            "PUBLISHER": {
+              "const": "mixed"
+            },
+            "API": {
+              "enum": [
+                "openai-responses",
+                "openai-completions",
+                "anthropic-messages"
+              ]
+            },
+            "AUTH_MODE": {
+              "enum": [
+                "api-key"
+              ]
+            }
+          }
+        },
+        {
+          "required": [
+            "BASE_URL"
+          ]
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "NATIVE_PROVIDER"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "required": [
+            "API"
+          ]
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "NATIVE_ENV_REFS_JSON"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "llmConnectionsV1_direct-anthropic": {
+      "title": "direct-anthropic",
+      "description": "Named connection authoring; existing host profiles and modelIds supply the model target and trusted catalog association. Runtime capability is separately gated.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/llmConnectionsV1_connection"
+        },
+        {
+          "properties": {
+            "PLATFORM": {
+              "const": "anthropic"
+            },
+            "PUBLISHER": {
+              "const": "anthropic"
+            },
+            "API": {
+              "enum": [
+                "anthropic-messages"
+              ]
+            },
+            "AUTH_MODE": {
+              "enum": [
+                "api-key"
+              ]
+            },
+            "NATIVE_PROVIDER": {
+              "const": "anthropic"
+            }
+          }
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "BASE_URL"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "NATIVE_ENV_REFS_JSON"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "llmConnectionsV1_direct-openai": {
+      "title": "direct-openai",
+      "description": "Named connection authoring; existing host profiles and modelIds supply the model target and trusted catalog association. Runtime capability is separately gated.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/llmConnectionsV1_connection"
+        },
+        {
+          "properties": {
+            "PLATFORM": {
+              "const": "openai"
+            },
+            "PUBLISHER": {
+              "const": "openai"
+            },
+            "API": {
+              "enum": [
+                "openai-responses",
+                "openai-completions"
+              ]
+            },
+            "AUTH_MODE": {
+              "enum": [
+                "api-key"
+              ]
+            },
+            "NATIVE_PROVIDER": {
+              "const": "openai"
+            }
+          }
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "BASE_URL"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "NATIVE_ENV_REFS_JSON"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "required": [
+            "API"
+          ]
+        }
+      ]
+    },
+    "llmConnectionsV1_direct-gemini": {
+      "title": "direct-gemini",
+      "description": "Named connection authoring; existing host profiles and modelIds supply the model target and trusted catalog association. Runtime capability is separately gated.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/llmConnectionsV1_connection"
+        },
+        {
+          "properties": {
+            "PLATFORM": {
+              "const": "google-ai"
+            },
+            "PUBLISHER": {
+              "const": "google"
+            },
+            "API": {
+              "enum": [
+                "google-generative-ai"
+              ]
+            },
+            "AUTH_MODE": {
+              "enum": [
+                "api-key"
+              ]
+            },
+            "NATIVE_PROVIDER": {
+              "const": "google"
+            }
+          }
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "BASE_URL"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "NATIVE_ENV_REFS_JSON"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "llmConnectionsV1_custom-openai-compatible": {
+      "title": "custom-openai-compatible",
+      "description": "Named connection authoring; existing host profiles and modelIds supply the model target and trusted catalog association. Runtime capability is separately gated.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/llmConnectionsV1_connection"
+        },
+        {
+          "properties": {
+            "PLATFORM": {
+              "const": "custom-gateway"
+            },
+            "PUBLISHER": {
+              "const": "mixed"
+            },
+            "API": {
+              "enum": [
+                "openai-responses",
+                "openai-completions"
+              ]
+            },
+            "AUTH_MODE": {
+              "enum": [
+                "api-key"
+              ]
+            }
+          }
+        },
+        {
+          "required": [
+            "BASE_URL"
+          ]
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "NATIVE_PROVIDER"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "required": [
+            "API"
+          ]
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "NATIVE_ENV_REFS_JSON"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "llmConnectionsV1_custom-anthropic-compatible": {
+      "title": "custom-anthropic-compatible",
+      "description": "Named connection authoring; existing host profiles and modelIds supply the model target and trusted catalog association. Runtime capability is separately gated.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/llmConnectionsV1_connection"
+        },
+        {
+          "properties": {
+            "PLATFORM": {
+              "const": "custom-gateway"
+            },
+            "PUBLISHER": {
+              "const": "anthropic"
+            },
+            "API": {
+              "enum": [
+                "anthropic-messages"
+              ]
+            },
+            "AUTH_MODE": {
+              "enum": [
+                "api-key"
+              ]
+            }
+          }
+        },
+        {
+          "required": [
+            "BASE_URL"
+          ]
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "NATIVE_PROVIDER"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "required": [
+            "API"
+          ]
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "NATIVE_ENV_REFS_JSON"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "llmConnectionsV1_plainDestination": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]*$",
+      "not": {
+        "anyOf": [
+          {
+            "enum": [
+              "APP_SECRET",
+              "BASH_ENV",
+              "ENV",
+              "HOME",
+              "LLM_PROVIDER",
+              "NODE_OPTIONS",
+              "PATH",
+              "PG_ADMIN_URL",
+              "PHOENIX_AGENTFS_CHECKPOINT_PROTOCOL",
+              "PHOENIX_AGENTFS_COMMAND_ID",
+              "PHOENIX_AGENTIC_WORKFLOW_CHECKPOINT_PATH",
+              "PHOENIX_AGENTIC_WORKFLOW_FENCE",
+              "PHOENIX_AGENT_INPUTS_DIR",
+              "PHOENIX_AGENT_SECRET_NAMES_JSON",
+              "PHOENIX_ARTIFACT_API_READ_ONLY",
+              "PHOENIX_ARTIFACT_API_TOKEN_FILE",
+              "PHOENIX_ARTIFACT_API_URL",
+              "PHOENIX_ARTIFACT_PUBLICATION_MODE",
+              "PHOENIX_ARTIFACT_TOKEN_VALUE",
+              "PHOENIX_DEV_BOX_LEASE_TOKEN",
+              "PHOENIX_DEV_BOX_LEASE_URL",
+              "PHOENIX_DEV_BOX_SUSPEND_TOKEN",
+              "PHOENIX_DEV_BOX_SUSPEND_URL",
+              "PHOENIX_GATEWAY_URL",
+              "PHOENIX_GITHUB_RELAY_API_URL",
+              "PHOENIX_GITHUB_RELAY_CAPABILITY",
+              "PHOENIX_INPUT_PATH",
+              "PHOENIX_LAB_COMMIT_SHA",
+              "PHOENIX_LAB_DIFF_REF",
+              "PHOENIX_LAB_ID",
+              "PHOENIX_LAB_PORT",
+              "PHOENIX_LAB_REPO_URL",
+              "PHOENIX_LAB_SERVER_URL",
+              "PHOENIX_OUTPUT_LAYOUT",
+              "PHOENIX_OUTPUT_ROOT",
+              "PHOENIX_PRIMARY_OUTPUT_FILE_RELATIVE_PATH",
+              "PHOENIX_REDACT_VALUES_FILE",
+              "PHOENIX_REDACT_VALUES_SETUP",
+              "PHOENIX_REMOTE_MACHINE_ID",
+              "PHOENIX_REMOTE_SSH_RELAY_CAPABILITY",
+              "PHOENIX_REMOTE_SSH_RELAY_URL",
+              "PHOENIX_REMOTE_WORKSPACE_ROOT",
+              "PHOENIX_SECRET_VALUE",
+              "PHOENIX_SETUP_SCRIPT",
+              "PHOENIX_SETUP_SCRIPT_SETUP",
+              "PHOENIX_TESTBOX_ENABLED",
+              "PHOENIX_TESTBOX_TOKEN",
+              "PHOENIX_TESTBOX_URL",
+              "PHOENIX_TOOLBOX_CAPABILITY",
+              "PHOENIX_TOOLBOX_ID",
+              "PHOENIX_WORKFLOW_CASE",
+              "PHOENIX_WORKFLOW_RUNTIME_GENERATION",
+              "PYTHONHOME",
+              "PYTHONPATH",
+              "REDIS_URL",
+              "SHELL",
+              "STORAGE_TYPE"
+            ]
+          },
+          {
+            "pattern": "^LD_"
+          },
+          {
+            "pattern": "^DYLD_"
+          },
+          {
+            "pattern": "^GIT_CONFIG_"
+          },
+          {
+            "pattern": "^PHOENIX_LLM_"
+          }
+        ]
+      }
+    },
+    "llmConnectionsV1_secretDestination": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]*$",
+      "not": {
+        "anyOf": [
+          {
+            "enum": [
+              "APP_SECRET",
+              "BASH_ENV",
+              "ENV",
+              "HOME",
+              "LLM_PROVIDER",
+              "NODE_OPTIONS",
+              "PATH",
+              "PG_ADMIN_URL",
+              "PHOENIX_AGENTFS_CHECKPOINT_PROTOCOL",
+              "PHOENIX_AGENTFS_COMMAND_ID",
+              "PHOENIX_AGENTIC_WORKFLOW_CHECKPOINT_PATH",
+              "PHOENIX_AGENTIC_WORKFLOW_FENCE",
+              "PHOENIX_AGENT_INPUTS_DIR",
+              "PHOENIX_AGENT_SECRET_NAMES_JSON",
+              "PHOENIX_ARTIFACT_API_READ_ONLY",
+              "PHOENIX_ARTIFACT_API_TOKEN_FILE",
+              "PHOENIX_ARTIFACT_API_URL",
+              "PHOENIX_ARTIFACT_PUBLICATION_MODE",
+              "PHOENIX_ARTIFACT_TOKEN_VALUE",
+              "PHOENIX_DEV_BOX_LEASE_TOKEN",
+              "PHOENIX_DEV_BOX_LEASE_URL",
+              "PHOENIX_DEV_BOX_SUSPEND_TOKEN",
+              "PHOENIX_DEV_BOX_SUSPEND_URL",
+              "PHOENIX_GATEWAY_URL",
+              "PHOENIX_GITHUB_RELAY_API_URL",
+              "PHOENIX_GITHUB_RELAY_CAPABILITY",
+              "PHOENIX_INPUT_PATH",
+              "PHOENIX_LAB_COMMIT_SHA",
+              "PHOENIX_LAB_DIFF_REF",
+              "PHOENIX_LAB_ID",
+              "PHOENIX_LAB_PORT",
+              "PHOENIX_LAB_REPO_URL",
+              "PHOENIX_LAB_SERVER_URL",
+              "PHOENIX_OUTPUT_LAYOUT",
+              "PHOENIX_OUTPUT_ROOT",
+              "PHOENIX_PRIMARY_OUTPUT_FILE_RELATIVE_PATH",
+              "PHOENIX_REDACT_VALUES_FILE",
+              "PHOENIX_REDACT_VALUES_SETUP",
+              "PHOENIX_REMOTE_MACHINE_ID",
+              "PHOENIX_REMOTE_SSH_RELAY_CAPABILITY",
+              "PHOENIX_REMOTE_SSH_RELAY_URL",
+              "PHOENIX_REMOTE_WORKSPACE_ROOT",
+              "PHOENIX_SECRET_VALUE",
+              "PHOENIX_SETUP_SCRIPT",
+              "PHOENIX_SETUP_SCRIPT_SETUP",
+              "PHOENIX_TESTBOX_ENABLED",
+              "PHOENIX_TESTBOX_TOKEN",
+              "PHOENIX_TESTBOX_URL",
+              "PHOENIX_TOOLBOX_CAPABILITY",
+              "PHOENIX_TOOLBOX_ID",
+              "PHOENIX_WORKFLOW_CASE",
+              "PHOENIX_WORKFLOW_RUNTIME_GENERATION",
+              "PYTHONHOME",
+              "PYTHONPATH",
+              "REDIS_URL",
+              "SHELL",
+              "STORAGE_TYPE"
+            ]
+          },
+          {
+            "pattern": "^LD_"
+          },
+          {
+            "pattern": "^DYLD_"
+          },
+          {
+            "pattern": "^GIT_CONFIG_"
+          },
+          {
+            "pattern": "^PHOENIX_LLM_"
+          },
+          {
+            "pattern": "^PHOENIX_"
+          },
+          {
+            "pattern": "^CORTEX_"
+          }
+        ]
+      }
+    }
+  },
+  "description": "Merge properties and namespaced definitions into the installed chart root; this fragment does not replace chart retention or other constraints. Structural acceptance does not establish native capability.",
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "llm"
+        ]
+      },
+      "then": {
+        "required": [
+          "agentInputDelivery"
+        ],
+        "properties": {
+          "agentInputDelivery": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

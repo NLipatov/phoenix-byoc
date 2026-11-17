@@ -1,0 +1,126 @@
+{
+  "contractVersion": "1",
+  "deliveryVersion": "1",
+  "configuration": "PHOENIX_AGENT_INPUTS_DIR",
+  "policy": {
+    "check": "before env and secret value reads; trusted execution enterprise",
+    "enterprisePattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    "file": "delivery-policy.json",
+    "requiredFields": [
+      "version",
+      "allowedEnterpriseIds"
+    ],
+    "uniqueNonemptyCanonicalEnterpriseIdsMax": 128,
+    "unknownFields": "reject",
+    "version": 1
+  },
+  "env": {
+    "file": "env.json",
+    "maxEntries": 256,
+    "values": "UTF-8 JSON strings without NUL; empty plain values permitted"
+  },
+  "secrets": {
+    "filePattern": "^PHOENIX_AGENT_SECRET_[A-Z][A-Z0-9_]*$",
+    "maxFiles": 128,
+    "prefix": "PHOENIX_AGENT_SECRET_",
+    "values": "nonblank UTF-8 without NUL; bytes preserved"
+  },
+  "names": {
+    "grammar": "^[A-Z][A-Z0-9_]*$",
+    "reservedExact": [
+      "APP_SECRET",
+      "BASH_ENV",
+      "ENV",
+      "HOME",
+      "LLM_PROVIDER",
+      "NODE_OPTIONS",
+      "PATH",
+      "PG_ADMIN_URL",
+      "PHOENIX_AGENTFS_CHECKPOINT_PROTOCOL",
+      "PHOENIX_AGENTFS_COMMAND_ID",
+      "PHOENIX_AGENTIC_WORKFLOW_CHECKPOINT_PATH",
+      "PHOENIX_AGENTIC_WORKFLOW_FENCE",
+      "PHOENIX_AGENT_INPUTS_DIR",
+      "PHOENIX_AGENT_SECRET_NAMES_JSON",
+      "PHOENIX_ARTIFACT_API_READ_ONLY",
+      "PHOENIX_ARTIFACT_API_TOKEN_FILE",
+      "PHOENIX_ARTIFACT_API_URL",
+      "PHOENIX_ARTIFACT_PUBLICATION_MODE",
+      "PHOENIX_ARTIFACT_TOKEN_VALUE",
+      "PHOENIX_DEV_BOX_LEASE_TOKEN",
+      "PHOENIX_DEV_BOX_LEASE_URL",
+      "PHOENIX_DEV_BOX_SUSPEND_TOKEN",
+      "PHOENIX_DEV_BOX_SUSPEND_URL",
+      "PHOENIX_GATEWAY_URL",
+      "PHOENIX_GITHUB_RELAY_API_URL",
+      "PHOENIX_GITHUB_RELAY_CAPABILITY",
+      "PHOENIX_INPUT_PATH",
+      "PHOENIX_LAB_COMMIT_SHA",
+      "PHOENIX_LAB_DIFF_REF",
+      "PHOENIX_LAB_ID",
+      "PHOENIX_LAB_PORT",
+      "PHOENIX_LAB_REPO_URL",
+      "PHOENIX_LAB_SERVER_URL",
+      "PHOENIX_OUTPUT_LAYOUT",
+      "PHOENIX_OUTPUT_ROOT",
+      "PHOENIX_PRIMARY_OUTPUT_FILE_RELATIVE_PATH",
+      "PHOENIX_REDACT_VALUES_FILE",
+      "PHOENIX_REDACT_VALUES_SETUP",
+      "PHOENIX_REMOTE_MACHINE_ID",
+      "PHOENIX_REMOTE_SSH_RELAY_CAPABILITY",
+      "PHOENIX_REMOTE_SSH_RELAY_URL",
+      "PHOENIX_REMOTE_WORKSPACE_ROOT",
+      "PHOENIX_SECRET_VALUE",
+      "PHOENIX_SETUP_SCRIPT",
+      "PHOENIX_SETUP_SCRIPT_SETUP",
+      "PHOENIX_TESTBOX_ENABLED",
+      "PHOENIX_TESTBOX_TOKEN",
+      "PHOENIX_TESTBOX_URL",
+      "PHOENIX_TOOLBOX_CAPABILITY",
+      "PHOENIX_TOOLBOX_ID",
+      "PHOENIX_WORKFLOW_CASE",
+      "PHOENIX_WORKFLOW_RUNTIME_GENERATION",
+      "PYTHONHOME",
+      "PYTHONPATH",
+      "REDIS_URL",
+      "SHELL",
+      "STORAGE_TYPE"
+    ],
+    "reservedPrefixes": [
+      "LD_",
+      "DYLD_",
+      "GIT_CONFIG_"
+    ],
+    "secretOnlyReservedPrefixes": [
+      "PHOENIX_",
+      "CORTEX_"
+    ]
+  },
+  "marker": {
+    "name": "PHOENIX_AGENT_SECRET_NAMES_JSON",
+    "value": "sorted JSON array of new secret destination names only; absent without new secrets"
+  },
+  "behavior": {
+    "collisions": "reject new plain/secret overlap and overlap with either existing runtime map, even equal or empty values",
+    "generation": "one pinned projected generation per load; fresh snapshot per delivery",
+    "legacy": "unrelated existing explicit credentials remain unchanged",
+    "maxFileBytes": 65536,
+    "maxTotalBytes": 1048576,
+    "privacy": "errors contain safe codes/names only; runtime scrub and tool-boundary integration not yet wired",
+    "selectedFiles": "delivery-policy.json, env.json, exact prefixed secret names",
+    "supportedTarget": "planned opensandbox/linux/agent only; runtime wiring not implemented",
+    "unsupportedTargets": [
+      "external-host",
+      "windows",
+      "lab"
+    ]
+  },
+  "errorCodes": [
+    "agent_inputs_missing",
+    "agent_inputs_unreadable",
+    "agent_inputs_invalid",
+    "agent_inputs_limit",
+    "agent_inputs_unsupported",
+    "agent_inputs_collision"
+  ]
+}

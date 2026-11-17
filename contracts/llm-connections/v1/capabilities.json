@@ -1,0 +1,221 @@
+{
+  "entries": [
+    {
+      "route": "bedrock-anthropic",
+      "api": "bedrock-converse-stream",
+      "authMode": "api-key",
+      "status": "blocked",
+      "evidenceTests": [],
+      "reasonCode": "native_proof_pending"
+    },
+    {
+      "route": "bedrock-anthropic",
+      "api": "bedrock-converse-stream",
+      "authMode": "aws-workload",
+      "status": "blocked",
+      "evidenceTests": [],
+      "reasonCode": "native_proof_pending"
+    },
+    {
+      "route": "vertex-anthropic",
+      "api": "anthropic-messages",
+      "authMode": "gcp-workload",
+      "status": "blocked",
+      "evidenceTests": [],
+      "reasonCode": "native_proof_pending"
+    },
+    {
+      "route": "vertex-gemini",
+      "api": "google-vertex",
+      "authMode": "gcp-workload",
+      "status": "blocked",
+      "evidenceTests": [],
+      "reasonCode": "native_proof_pending"
+    },
+    {
+      "route": "azure-anthropic",
+      "api": "anthropic-messages",
+      "authMode": "api-key",
+      "status": "blocked",
+      "evidenceTests": [],
+      "reasonCode": "native_proof_pending"
+    },
+    {
+      "route": "azure-anthropic",
+      "api": "anthropic-messages",
+      "authMode": "azure-workload",
+      "status": "blocked",
+      "evidenceTests": [],
+      "reasonCode": "native_proof_pending"
+    },
+    {
+      "route": "azure-openai",
+      "api": "azure-openai-responses",
+      "authMode": "api-key",
+      "status": "blocked",
+      "evidenceTests": [],
+      "reasonCode": "native_proof_pending"
+    },
+    {
+      "route": "azure-openai",
+      "api": "azure-openai-responses",
+      "authMode": "azure-workload",
+      "status": "blocked",
+      "evidenceTests": [],
+      "reasonCode": "native_proof_pending"
+    },
+    {
+      "route": "azure-openai",
+      "api": "openai-completions",
+      "authMode": "api-key",
+      "status": "blocked",
+      "evidenceTests": [],
+      "reasonCode": "native_proof_pending"
+    },
+    {
+      "route": "azure-openai",
+      "api": "openai-completions",
+      "authMode": "azure-workload",
+      "status": "blocked",
+      "evidenceTests": [],
+      "reasonCode": "native_proof_pending"
+    },
+    {
+      "route": "portkey-anthropic",
+      "api": "openai-responses",
+      "authMode": "api-key",
+      "status": "blocked",
+      "evidenceTests": [],
+      "reasonCode": "native_proof_pending"
+    },
+    {
+      "route": "portkey-anthropic",
+      "api": "openai-completions",
+      "authMode": "api-key",
+      "status": "blocked",
+      "evidenceTests": [],
+      "reasonCode": "native_proof_pending"
+    },
+    {
+      "route": "portkey-anthropic",
+      "api": "anthropic-messages",
+      "authMode": "api-key",
+      "status": "blocked",
+      "evidenceTests": [],
+      "reasonCode": "native_proof_pending"
+    },
+    {
+      "route": "portkey-openai",
+      "api": "openai-responses",
+      "authMode": "api-key",
+      "status": "blocked",
+      "evidenceTests": [],
+      "reasonCode": "native_proof_pending"
+    },
+    {
+      "route": "portkey-openai",
+      "api": "openai-completions",
+      "authMode": "api-key",
+      "status": "blocked",
+      "evidenceTests": [],
+      "reasonCode": "native_proof_pending"
+    },
+    {
+      "route": "portkey-gemini",
+      "api": "openai-responses",
+      "authMode": "api-key",
+      "status": "blocked",
+      "evidenceTests": [],
+      "reasonCode": "native_proof_pending"
+    },
+    {
+      "route": "portkey-gemini",
+      "api": "openai-completions",
+      "authMode": "api-key",
+      "status": "blocked",
+      "evidenceTests": [],
+      "reasonCode": "native_proof_pending"
+    },
+    {
+      "route": "portkey-mixed",
+      "api": "openai-responses",
+      "authMode": "api-key",
+      "status": "blocked",
+      "evidenceTests": [],
+      "reasonCode": "native_proof_pending"
+    },
+    {
+      "route": "portkey-mixed",
+      "api": "openai-completions",
+      "authMode": "api-key",
+      "status": "blocked",
+      "evidenceTests": [],
+      "reasonCode": "native_proof_pending"
+    },
+    {
+      "route": "portkey-mixed",
+      "api": "anthropic-messages",
+      "authMode": "api-key",
+      "status": "blocked",
+      "evidenceTests": [],
+      "reasonCode": "native_proof_pending"
+    },
+    {
+      "route": "direct-anthropic",
+      "api": "anthropic-messages",
+      "authMode": "api-key",
+      "status": "blocked",
+      "evidenceTests": [],
+      "reasonCode": "native_proof_pending"
+    },
+    {
+      "route": "direct-openai",
+      "api": "openai-responses",
+      "authMode": "api-key",
+      "status": "blocked",
+      "evidenceTests": [],
+      "reasonCode": "native_proof_pending"
+    },
+    {
+      "route": "direct-openai",
+      "api": "openai-completions",
+      "authMode": "api-key",
+      "status": "blocked",
+      "evidenceTests": [],
+      "reasonCode": "native_proof_pending"
+    },
+    {
+      "route": "direct-gemini",
+      "api": "google-generative-ai",
+      "authMode": "api-key",
+      "status": "blocked",
+      "evidenceTests": [],
+      "reasonCode": "native_proof_pending"
+    },
+    {
+      "route": "custom-openai-compatible",
+      "api": "openai-responses",
+      "authMode": "api-key",
+      "status": "blocked",
+      "evidenceTests": [],
+      "reasonCode": "native_proof_pending"
+    },
+    {
+      "route": "custom-openai-compatible",
+      "api": "openai-completions",
+      "authMode": "api-key",
+      "status": "blocked",
+      "evidenceTests": [],
+      "reasonCode": "native_proof_pending"
+    },
+    {
+      "route": "custom-anthropic-compatible",
+      "api": "anthropic-messages",
+      "authMode": "api-key",
+      "status": "blocked",
+      "evidenceTests": [],
+      "reasonCode": "native_proof_pending"
+    }
+  ],
+  "liveAcceptance": []
+}

@@ -1,0 +1,47 @@
+[
+  {
+    "id": "flat_env_named_reference",
+    "kind": "env",
+    "input": {
+      "PHOENIX_LLM_CONFIG_VERSION": "1",
+      "PHOENIX_LLM_CONNECTIONS": "example",
+      "PHOENIX_LLM_EXAMPLE_PLATFORM": "openai",
+      "PHOENIX_LLM_EXAMPLE_PUBLISHER": "openai",
+      "PHOENIX_LLM_EXAMPLE_AUTH_MODE": "api-key",
+      "PHOENIX_LLM_EXAMPLE_API": "openai-responses",
+      "PHOENIX_LLM_EXAMPLE_API_KEY_ENV": "EXAMPLE_KEY",
+      "PHOENIX_AGENT_SECRET_NAMES_JSON": "[\"EXAMPLE_KEY\"]",
+      "EXAMPLE_KEY": "synthetic-test-only-value"
+    },
+    "expected": {
+      "structural": true,
+      "semantic": true,
+      "capability": "blocked",
+      "secretNames": [
+        "EXAMPLE_KEY"
+      ]
+    }
+  },
+  {
+    "id": "generic_delivery_fixture_unproved",
+    "kind": "delivery",
+    "input": {
+      "envJson": {},
+      "deliveryPolicy": {
+        "version": 1,
+        "allowedEnterpriseIds": [
+          "00000000-0000-4000-8000-000000000001"
+        ]
+      },
+      "files": {},
+      "existingEnv": {},
+      "existingSecretEnv": {},
+      "enterpriseId": "00000000-0000-4000-8000-000000000001"
+    },
+    "expected": {
+      "structural": true,
+      "semantic": true,
+      "capability": "blocked"
+    }
+  }
+]
