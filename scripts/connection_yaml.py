@@ -1,6 +1,7 @@
 """Bounded raw-YAML adapter for authoring only; not release/capability admission."""
 import json
 import os
+from pathlib import Path
 import selectors
 import shutil
 import stat
@@ -8,7 +9,7 @@ import subprocess
 import tempfile
 import time
 
-from connection_contract import ContractError, validate_connections
+from connection_contract import ContractError, load_contract, validate_connections
 
 BLOCKS = ('llm', 'agentInputDelivery')
 MAX_FILE_BYTES = 4 * 1024 * 1024
@@ -186,7 +187,7 @@ def _run(yq, arguments, payload=b''):
             child.stderr.close()
 
 
-def load_yaml_authoring(release, defaults, values, secrets, bundle):
+def load_yaml_authoring(release, defaults, values, secrets, bundle=None):
     """Read release/defaults/values/secrets and return the effective projection.
 
     Unsupported aliases, merges, tags and complex keys affecting authoring fail
@@ -211,6 +212,8 @@ def load_yaml_authoring(release, defaults, values, secrets, bundle):
                     # the owner validator decide; partial nonempty maps may be
                     # completed by other layers and are checked only at the end.
                     if not isinstance(value, dict) or not value:
+                        if bundle is None:
+                            bundle = load_contract(Path(__file__).resolve().parents[1])
                         validate_connections({key: value}, bundle)
                 layers.append(config)
         merged = _run(yq, ['eval', '-o=json', '-I=0',

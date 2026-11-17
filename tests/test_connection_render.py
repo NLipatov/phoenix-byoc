@@ -206,6 +206,13 @@ class ConnectionRenderTest(unittest.TestCase):
         # Same checked repo-owned chart fixture, but exercise the actual render.sh.
         (self.source / 'scripts').mkdir(exist_ok=True)
         shutil.copy2(ROOT / 'scripts/render.sh', self.source / 'scripts/render.sh')
+        for name in ('connection-config.py', 'connection_yaml.py', 'connection_contract.py'):
+            shutil.copy2(ROOT / 'scripts' / name, self.source / 'scripts' / name)
+        shutil.copytree(ROOT / 'contracts', self.source / 'contracts')
+        yq = shutil.which('yq')
+        if not yq:
+            raise RuntimeError('pinned yq required for the real local gate')
+        (self.isolation / 'bin/yq').symlink_to(Path(yq).resolve())
         helmfile_link = self.isolation / 'bin/helmfile'
         if not helmfile_link.exists():
             helmfile_link.symlink_to(self.helmfile)

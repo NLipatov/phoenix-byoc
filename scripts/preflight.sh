@@ -33,6 +33,15 @@ if [[ ! -f "$secrets_file" ]]; then
 fi
 chmod 600 "$secrets_file"
 
+# Raw authoring must be checked before yq merge can discard duplicate presence.
+# The shared local gate does not read cluster Secrets or grant release support.
+if ! python3 "$repo_root/scripts/connection-config.py" gate-yaml \
+    "$repo_root/release.yaml" "$repo_root/defaults/values.yaml" \
+    "$values_file" "$secrets_file" >/dev/null 2>&1; then
+  echo 'ERROR: connection_gate_failed' >&2
+  exit 1
+fi
+
 if ! yq -e 'type == "!!map" and length > 0' "$values_file" >/dev/null 2>&1; then
   echo "ERROR: values file must be a non-empty YAML mapping: $values_file" >&2
   exit 1

@@ -49,6 +49,19 @@ if ! {
   fail render_output_unavailable
 fi
 
+# Standalone rendering has the same raw/final gate as preflight, but no GETs.
+# Keep failures private and invalidate the prior output before running the gate.
+values_file=${PHOENIX_BYOC_VALUES_FILE:-}
+secrets_file=${PHOENIX_BYOC_SECRETS_FILE:-}
+[[ -n "$values_file" && -n "$secrets_file" ]] || fail render_connection_gate_failed
+[[ "$values_file" == /* ]] || values_file="$repo_root/$values_file"
+[[ "$secrets_file" == /* ]] || secrets_file="$repo_root/$secrets_file"
+if ! python3 "$repo_root/scripts/connection-config.py" gate-yaml \
+    "$repo_root/release.yaml" "$repo_root/defaults/values.yaml" \
+    "$values_file" "$secrets_file" >/dev/null 2>&1; then
+  fail render_connection_gate_failed
+fi
+
 # Protect Bash's own redirection-open diagnostics as well as tool stderr.
 if ! {
   (

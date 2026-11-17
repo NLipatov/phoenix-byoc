@@ -22,8 +22,20 @@ class RenderPrivacyTest(unittest.TestCase):
         self.repo = self.base / 'source'
         (self.repo / 'scripts').mkdir(parents=True)
         shutil.copy2(ROOT / 'scripts/render.sh', self.repo / 'scripts/render.sh')
+        for name in ('connection-config.py', 'connection_yaml.py', 'connection_contract.py'):
+            shutil.copy2(ROOT / 'scripts' / name, self.repo / 'scripts' / name)
+        for name in ('contracts', 'defaults'):
+            shutil.copytree(ROOT / name, self.repo / name)
+        shutil.copy2(ROOT / 'release.yaml', self.repo / 'release.yaml')
+        for name in ('values.json', 'secrets.json'):
+            (self.base / name).write_text('{}\n')
         self.bin = self.base / 'bin'
         self.bin.mkdir()
+        yq = shutil.which('yq')
+        if not yq:
+            raise RuntimeError('pinned yq required for the real local gate')
+        (self.bin / 'yq').symlink_to(Path(yq).resolve())
+        (self.bin / 'python3').symlink_to(sys.executable)
         self.observed = self.base / 'observed.jsonl'
         spy = '''#!{python}
 import json, os, pathlib, signal, stat, sys, time
@@ -70,6 +82,8 @@ else:
             tool.chmod(0o700)
         self.env = {'PATH': str(self.bin) + ':/usr/bin:/bin', 'HOME': str(self.base),
                     'KUBECONFIG': str(self.base / 'no-kubeconfig'),
+                    'PHOENIX_BYOC_VALUES_FILE': str(self.base / 'values.json'),
+                    'PHOENIX_BYOC_SECRETS_FILE': str(self.base / 'secrets.json'),
                     'HELMFILE_CACHE_HOME': str(self.base / 'cache'),
                     'TEST_REPO': str(self.repo), 'TEST_OBSERVED': str(self.observed),
                     'TEST_CANARY': CANARY, 'TEST_MODE': 'success'}
