@@ -65,6 +65,15 @@ The bundled BYOC topology deploys PostgreSQL and Valkey alongside Phoenix.
 It is a single-instance topology; availability, backups and recovery remain
 the customer's responsibility.
 
+## Agent connection inputs
+
+The unreleased typed connection/generic input surface is documented in
+[Agent connection inputs](docs/connection-inputs.md). Authoring acceptance is
+not installation approval: release `0.2.6` has no verified enabled-delivery
+authority and all 27 named capability rows remain blocked. Valid absent/disabled
+legacy delivery remains separate. Existing enterprise ownership and agent bundle
+PIN checks are preserved; no new image-attestation framework is introduced.
+
 ## Release support
 
 Only chart and image versions committed to a stable `release.yaml`

@@ -1,5 +1,13 @@
 # Rollback
 
+For unreleased agent input configurations, first follow
+[Safe disable and rollback](connection-inputs.md#safe-disable-and-rollback):
+pause admission, drain or handle incompatible sessions, remove `llm` from its
+source overlays, empty generic maps and disable delivery, then revalidate/render
+before an authorized apply. Preserve legacy credentials/profiles and AgentFS
+retained images. Disabling does not reverse retention deletion or authorize
+database down-migrations, IAM changes or secret rotation.
+
 For a rollback from 0.2.5, follow the additional requirements below before
 using a previous installer.
 

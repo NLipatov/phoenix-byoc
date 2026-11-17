@@ -6,6 +6,14 @@ inputs to the installer. Start from the complete files under `examples/`.
 `release.yaml` and `defaults/values.yaml` are owned by Phoenix and must not be
 edited during a supported installation.
 
+## Unreleased agent connection inputs
+
+[Agent connection inputs](connection-inputs.md) consolidates typed `llm`, generic
+`agentInputDelivery`, enterprise scope, Secret-reference limitations and safe
+disable guidance. Its examples are non-installable authoring examples: all new
+enabled delivery remains blocked for release `0.2.6`. Existing `vertex` and
+`secrets.agents.*` / chart `agentSecrets` instructions below remain unchanged.
+
 ## Component selection
 
 - `opensandboxController.enabled`: install the cluster-wide OpenSandbox
@@ -53,7 +61,7 @@ The current release installs these exact Phoenix-owned chart versions:
 | Phoenix Gateway | `0.5.0` |
 | Phoenix Web | `0.2.3` |
 | Phoenix Web Frontend | `0.1.0` |
-| Phoenix Workflow Engine | `0.2.5` |
+| Phoenix Workflow Engine | `0.2.8` |
 | PostgreSQL bootstrap (included in this repository) | `0.1.0` |
 | Artifact publisher credential (included; opt-in) | `0.1.0` |
 

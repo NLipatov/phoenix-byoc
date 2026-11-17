@@ -138,6 +138,16 @@ kubectl config current-context
 
 The installer never selects or changes a context.
 
+## Unreleased agent input authoring
+
+See [Agent connection inputs](connection-inputs.md) before supplying `llm` or
+`agentInputDelivery`. The authoring helper is not an install approval; the
+companion feature-branch preflight/render gates reject all enabled new delivery
+for release `0.2.6`. Valid absent/disabled legacy inputs remain usable. The guide
+also describes automatic changed-input revalidation, private snapshots and
+cleanup, and their local-input (not remote-artifact attestation) boundary.
+These integration changes require combined-source verification before publication.
+
 ## AgentFS prerequisites
 
 See [AgentFS prerequisites and upgrades](agentfs.md) for the default Agent

@@ -13,6 +13,11 @@
 
 `mise install` installs the versions declared in `.mise.toml`.
 
+The unreleased [agent connection authoring checks](connection-inputs.md) use
+Helm **3.18.6**, yq **4.49.2** and Python **3.9+ standard library**, without new
+customer packages. These checks do not enable installation or prove workload
+identity/provider access. All new enabled delivery remains blocked.
+
 `crane` is optional and required only when verifying or mirroring runtime
 images.
 
