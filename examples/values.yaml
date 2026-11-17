@@ -122,6 +122,24 @@ vertex:
     sonnet: claude-sonnet-5
     haiku: claude-haiku-4-5@20251001
 
+# Agent input delivery is disabled until the operator/runtime contract is verified.
+# Enable only for real, explicitly chosen enterprise IDs after installation.
+# agentInputDelivery:
+#   enabled: true
+#   allowedEnterpriseIds: ["12345678-1234-4234-8234-123456789abc"] # example only; replace
+#   env:
+#     EXAMPLE_PLAIN: "non-secret value"
+#   secretEnv:
+#     EXAMPLE_TOKEN:
+#       name: existing-agent-secret
+#       key: token
+# Optional named LLM authoring (requires a chart/runtime with admitted native capabilities):
+# llm:
+#   CONFIG_VERSION: "1"
+#   connections: {} # replace with a reviewed named connection; never put keys here
+#   env: {}
+#   secretEnv: {}
+
 application:
   agentBundles:
     namespace: agent-bundles

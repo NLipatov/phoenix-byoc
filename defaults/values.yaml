@@ -146,6 +146,15 @@ vertex:
     sonnet: claude-sonnet-5
     haiku: claude-haiku-4-5@20251001
 
+# Agent input delivery defaults to OFF when absent; do not add a concrete
+# mapping here: Helmfile merges defaults with customer values and would mask
+# an explicitly supplied invalid empty mapping before authoring validation.
+# agentInputDelivery:
+#   enabled: false
+#   allowedEnterpriseIds: []
+#   env: {}
+#   secretEnv: {}
+
 application:
   tenantId: phoenix
   appHost: phoenix.example.com

@@ -62,6 +62,15 @@
 workflowRunRetention:
 {{ toYaml .Values.services.workflowEngine.runRetention | indent 2 }}
 
+{{- if hasKey .Values "llm" }}
+llm:
+{{ toYaml (index .Values "llm") | indent 2 }}
+{{- end }}
+{{- if hasKey .Values "agentInputDelivery" }}
+agentInputDelivery:
+{{ toYaml (index .Values "agentInputDelivery") | indent 2 }}
+{{- end }}
+
 image:
   repository: {{ $engineRepository | quote }}
   tag: {{ $engineTag | quote }}
