@@ -5,9 +5,11 @@ import json
 import os
 from pathlib import Path
 import secrets
+import stat
 import subprocess
 import sys
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
@@ -186,6 +188,129 @@ class ConnectionValuesTest(unittest.TestCase):
         config['agentInputDelivery']['secretEnv'] = {
             'KEY_%03d' % i: {'name': 'synthetic-provider-secret', 'key': 'api-key'} for i in range(128)}
         self.invalid(config, 'secret_count_limit')
+
+    def test_known_plain_nul_rejected_without_banning_empty_generic(self):
+        generic = next(v['input'] for v in self.vectors if v['id'] == 'generic_only')
+        generic = copy.deepcopy(generic)
+        generic['agentInputDelivery']['env'] = {'EMPTY': ''}
+        self.valid(generic)
+        generic['agentInputDelivery']['env']['PAD'] = 'a\x00b'
+        self.helm_schema(generic, self.bundle)
+        self.invalid(generic, 'source_required')
+        named = self.base()
+        named['llm']['env']['UNUSED'] = 'a\x00b'
+        self.helm_schema(named, self.bundle)
+        self.invalid(named, 'source_required')
+
+    def test_native_reference_source_class_and_controls(self):
+        workload = copy.deepcopy(self.vectors[1]['input'])
+        refs = workload['llm']['connections']['example']['NATIVE_ENV_REFS_JSON']
+        refs['AWS_ROLE_SESSION_NAME'] = 'SESSION_NAME'
+        workload['llm']['platformEnv'].append('SESSION_NAME')
+        self.helm_schema(workload, self.bundle)
+        self.valid(workload)  # A platform declaration is not identity proof.
+        wrong = copy.deepcopy(workload)
+        wrong['llm']['platformEnv'].remove('SESSION_NAME')
+        wrong['llm']['env']['SESSION_NAME'] = 'plain-session'
+        self.helm_schema(wrong, self.bundle)
+        self.invalid(wrong, 'source_required')
+        wrong = copy.deepcopy(workload)
+        wrong['llm']['platformEnv'].remove('AWS_ROLE_ARN')
+        wrong['llm']['env']['AWS_ROLE_ARN'] = 'plain-role'
+        self.helm_schema(wrong, self.bundle)
+        self.invalid(wrong, 'source_required')
+        wrong = self.base()
+        wrong['llm']['env'].pop('AWS_REGION')
+        wrong['llm']['platformEnv'] = ['AWS_REGION']
+        self.helm_schema(wrong, self.bundle)
+        self.invalid(wrong, 'source_required')
+        for invalid in ('us\teast-1', 'us\u0080east-1'):
+            wrong = self.base()
+            wrong['llm']['env']['AWS_REGION'] = invalid
+            self.helm_schema(wrong, self.bundle)
+            self.invalid(wrong, 'source_required')
+        with_header = copy.deepcopy(workload)
+        with_header['llm']['connections']['example']['HEADERS_JSON'] = {'x-platform': '$AWS_ROLE_ARN'}
+        self.helm_schema(with_header, self.bundle)
+        self.valid(with_header)
+        # Unused platform declarations are allowed here; runtime must establish real identity.
+        with_header['llm']['platformEnv'].append('UNUSED_PLATFORM')
+        self.valid(with_header)
+        gateway = copy.deepcopy(next(v['input'] for v in self.vectors if v['id'].startswith('valid/portkey-anthropic/')))
+        gateway['llm'].setdefault('env', {})['TRACE'] = 'a!$b'  # Resolved values are not raw interpolation.
+        gateway['llm']['connections']['example']['HEADERS_JSON'] = {'x-trace': '$TRACE'}
+        self.valid(gateway)
+        gateway['llm']['connections']['example']['HEADERS_JSON'] = {'x-trace': 'a!b'}
+        self.valid(gateway)
+
+    def test_reserved_names_and_header_url_controls(self):
+        for name in ('constructor', 'prototype'):
+            config = self.base()
+            config['llm']['connections'][name] = config['llm']['connections'].pop('example')
+            self.helm_schema(config, self.bundle)
+            self.invalid(config, 'invalid_authoring')
+        for name in ('__proto__', 'constructor', 'prototype'):
+            config = self.base()
+            config['llm']['connections']['example']['HEADERS_JSON'] = {name: 'safe'}
+            self.helm_schema(config, self.bundle)
+            self.invalid(config, 'header_invalid')
+        gateway = copy.deepcopy(next(v['input'] for v in self.vectors if v['id'].startswith('valid/portkey-anthropic/')))
+        for value in ('safe\tunsafe', 'safe\u0080unsafe', 'safe\u009funsafe'):
+            config = copy.deepcopy(gateway)
+            config['llm']['connections']['example']['HEADERS_JSON'] = {'x-trace': value}
+            if '\t' not in value:
+                self.helm_schema(config, self.bundle)
+                self.invalid(config, 'header_invalid')
+            else:
+                self.invalid(config, 'connection_schema_invalid')
+            config = copy.deepcopy(gateway)
+            config['llm'].setdefault('env', {})['TRACE'] = value
+            config['llm']['connections']['example']['HEADERS_JSON'] = {'x-trace': '$TRACE'}
+            self.helm_schema(config, self.bundle)
+            self.invalid(config, 'header_invalid')
+            config = copy.deepcopy(gateway)
+            config['llm']['connections']['example']['BASE_URL'] = 'https://api.portkey.ai/' + value
+            if '\t' not in value:
+                self.helm_schema(config, self.bundle)
+                self.invalid(config, 'invalid_authoring')
+            else:
+                self.invalid(config, 'connection_schema_invalid')
+        invalid_port = copy.deepcopy(gateway)
+        invalid_port['llm']['connections']['example']['BASE_URL'] = 'https://api.portkey.ai:invalid/path'
+        self.helm_schema(invalid_port, self.bundle)
+        self.invalid(invalid_port, 'invalid_authoring')
+
+    def test_private_helm_ascii_escape_preserves_json_and_utf8_bounds(self):
+        config = copy.deepcopy(next(v['input'] for v in self.vectors if v['id'] == 'generic_only'))
+        value = 'é\u0080z'
+        config['agentInputDelivery']['env'] = {'MESSAGE': value}
+        original_run = subprocess.run
+        examined = []
+
+        def capture(command, **kwargs):
+            contents = Path(command[command.index('--values') + 1]).read_bytes()
+            self.assertTrue(contents.isascii())
+            self.assertEqual(json.loads(contents), config)
+            self.assertEqual(stat.S_IMODE(Path(command[command.index('--values') + 1]).stat().st_mode), 0o600)
+            examined.append(True)
+            return original_run(command, **kwargs)
+
+        with patch('subprocess.run', side_effect=capture):
+            self.assertEqual(self.valid(config).plain_env['MESSAGE'], value)
+        self.assertTrue(examined)
+        self.assertEqual(len(value.encode('utf-8')), 5)
+        config['agentInputDelivery']['env']['MESSAGE'] = 'é' * 33000
+        self.invalid(config, 'env_size_limit')
+
+    def test_cli_oversized_input_is_safe_on_both_commands(self):
+        oversized = b'x' * (4 * 1024 * 1024 + 1)
+        for command in ('check', 'references'):
+            with self.subTest(command=command):
+                result = subprocess.run([sys.executable, str(ROOT / 'scripts/connection-config.py'), command],
+                                        input=oversized, capture_output=True, cwd=ROOT)
+                self.assertEqual(result.returncode, 1)
+                self.assertEqual(result.stdout, b'')
+                self.assertEqual(result.stderr, b'input_size_limit: /\n')
 
     def test_legacy_provider_names_are_not_runner_controls(self):
         config = self.base()

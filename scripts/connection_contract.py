@@ -8,6 +8,7 @@ from pathlib import Path, PurePosixPath
 import re
 import stat
 from typing import Dict
+from urllib.parse import urlsplit
 
 LOCK_SHA256 = 'e5db4a3529d6a8d917f7f340e4e72ad0be5135c66894ececa2edbbdafaf35525'
 MAX_LOCK_BYTES = 65536
@@ -234,6 +235,14 @@ class ValidatedInputs:
 # This is not another route catalog or a schema validation interpreter.
 _HEADER_TOKEN = re.compile(r"[!#$%&'*+.^_`|~0-9A-Za-z-]+\Z")
 _HEADER_REF = re.compile(r'\$([A-Z][A-Z0-9_]*)\Z')
+# Seven native keys require an actual sandbox platform source at runtime;
+# a declaration here does not certify that source or its identity.
+_PLATFORM_NATIVE_KEYS = frozenset((
+    'AWS_ROLE_ARN', 'AWS_WEB_IDENTITY_TOKEN_FILE', 'AWS_ROLE_SESSION_NAME',
+    'AWS_CONTAINER_CREDENTIALS_FULL_URI', 'AWS_CONTAINER_CREDENTIALS_RELATIVE_URI',
+    'AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE', 'AZURE_FEDERATED_TOKEN_FILE',
+))
+_FORBIDDEN_MEMBER_NAMES = frozenset(('__proto__', 'constructor', 'prototype'))
 _PROTECTED_HEADERS = frozenset((
     'authorization', 'proxy-authorization', 'x-api-key', 'api-key',
     'x-portkey-api-key', 'host', 'cookie', 'anthropic-version',
@@ -262,7 +271,9 @@ def _schema_helm(config, bundle):
         # The owner schema is copied byte-for-byte, with no local adapter.
         shutil.copyfile(bundle.schema, chart / 'values.schema.json')
         os.chmod(chart / 'values.schema.json', 0o600)
-        private_file(base / 'input.json', json.dumps(config, ensure_ascii=False,
+        # Escaped Unicode is the same JSON value; avoid YAML's raw C1 parser
+        # rejection so Helm schema and semantic checks retain distinct outcomes.
+        private_file(base / 'input.json', json.dumps(config, ensure_ascii=True,
                                                       separators=(',', ':'), allow_nan=False).encode('utf-8'))
         env = {'PATH': os.environ.get('PATH', '/usr/bin:/bin'), 'HOME': folder,
                'KUBECONFIG': '/dev/null', 'HELM_CONFIG_HOME': folder,
@@ -331,6 +342,10 @@ def validate_connections(config: dict, bundle: ContractBundle) -> ValidatedInput
     destinations = set(llm_env) | set(llm_secrets) | set(generic_env) | set(generic_secrets)
     if destinations.intersection(platform):
         raise ContractError('destination_collision', '/llm/platformEnv')
+    # The Engine transport forbids NUL even in unused known plain values.
+    # Do not reject empty generic strings or inspect unknown Secret bytes.
+    if any('\x00' in value for value in tuple(llm_env.values()) + tuple(generic_env.values())):
+        raise ContractError('source_required', '/agentInputDelivery/env')
     plain = dict(generic_env)
     plain.update(llm_env)
     secrets = {name: SecretKeyRef(**ref) for name, ref in generic_secrets.items()}
@@ -351,6 +366,8 @@ def validate_connections(config: dict, bundle: ContractBundle) -> ValidatedInput
         connections = llm['connections']
         plain['PHOENIX_LLM_CONNECTIONS'] = ','.join(sorted(connections))
         for name, connection in sorted(connections.items()):
+            if name in _FORBIDDEN_MEMBER_NAMES:
+                raise ContractError('invalid_authoring', '/llm/connections')
             route = families.get((connection['PLATFORM'], connection['PUBLISHER']))
             if route is None:
                 raise ContractError('connection_schema_invalid', '/llm/connections')
@@ -370,9 +387,16 @@ def validate_connections(config: dict, bundle: ContractBundle) -> ValidatedInput
             if 'API_KEY_ENV' in connection and connection['API_KEY_ENV'] not in llm_secrets:
                 raise ContractError('secret_reference_required', path + '/API_KEY_ENV')
             refs = connection.get('NATIVE_ENV_REFS_JSON', {})
-            for destination in refs.values():
-                if destination not in plain and destination not in platform:
+            for native_key, destination in refs.items():
+                if native_key in _FORBIDDEN_MEMBER_NAMES:
+                    raise ContractError('invalid_authoring', path + '/NATIVE_ENV_REFS_JSON')
+                if native_key in _PLATFORM_NATIVE_KEYS:
+                    if destination not in platform:
+                        raise ContractError('source_required', path + '/NATIVE_ENV_REFS_JSON')
+                elif destination not in plain or not plain[destination] or _has_control(plain[destination]):
                     raise ContractError('source_required', path + '/NATIVE_ENV_REFS_JSON')
+            if 'BASE_URL' in connection and not _valid_url(connection['BASE_URL']):
+                raise ContractError('invalid_authoring', path + '/BASE_URL')
             headers = connection.get('HEADERS_JSON', {})
             seen = set()
             for header, value in headers.items():
@@ -380,14 +404,15 @@ def validate_connections(config: dict, bundle: ContractBundle) -> ValidatedInput
                 if lower in seen:
                     raise ContractError('header_case_duplicate', path + '/HEADERS_JSON')
                 seen.add(lower)
-                if not _HEADER_TOKEN.fullmatch(header) or lower in _PROTECTED_HEADERS:
+                if (header in _FORBIDDEN_MEMBER_NAMES or not _HEADER_TOKEN.fullmatch(header)
+                        or lower in _PROTECTED_HEADERS):
                     raise ContractError('header_invalid', path + '/HEADERS_JSON')
                 ref = _HEADER_REF.fullmatch(value)
                 if ref:
                     destination = ref.group(1)
                     if destination not in plain and destination not in secrets and destination not in platform:
                         raise ContractError('source_required', path + '/HEADERS_JSON')
-                    if destination in plain and not _header_literal(plain[destination]):
+                    if destination in plain and not _header_value(plain[destination]):
                         raise ContractError('header_invalid', path + '/HEADERS_JSON')
                 elif not _header_literal(value):
                     raise ContractError('header_invalid', path + '/HEADERS_JSON')
@@ -407,6 +432,26 @@ def validate_connections(config: dict, bundle: ContractBundle) -> ValidatedInput
     return ValidatedInputs(enabled, plain, secrets, tuple(sorted(platform)), tuple(sorted(required)))
 
 
+def _has_control(value):
+    return any(ord(ch) < 32 or 127 <= ord(ch) <= 159 for ch in value)
+
+
+def _valid_url(value):
+    if _has_control(value) or '\\' in value or '?' in value or '#' in value:
+        return False
+    try:
+        url = urlsplit(value)
+        port = url.port  # Invalid numeric ports raise ValueError.
+        return (url.scheme == 'https' and bool(url.hostname) and
+                not url.username and not url.password and
+                not url.query and not url.fragment)
+    except ValueError:
+        return False
+
+
+def _header_value(value):
+    return bool(value) and not _has_control(value) and len(value.encode('utf-8')) <= 65536
+
+
 def _header_literal(value):
-    return (bool(value) and not any(ord(ch) < 32 or 127 <= ord(ch) <= 159 for ch in value)
-            and '$' not in value and '!' not in value and '`' not in value)
+    return _header_value(value) and '$' not in value and not value.startswith('!') and '`' not in value

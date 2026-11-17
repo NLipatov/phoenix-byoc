@@ -27,6 +27,9 @@ def main():
         if len(payload) > MAX_INPUT:
             raise ContractError('input_size_limit', '/')
         config = json.loads(payload, object_pairs_hook=_unique)
+    except ContractError as error:
+        print(error.code + ': ' + error.path, file=sys.stderr)
+        return 1
     except (ValueError, UnicodeError, RecursionError):
         print('invalid_json: /', file=sys.stderr)
         return 1
