@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / 'scripts/connection-secrets.py'
@@ -155,6 +156,11 @@ class ConnectionSecretsCliTest(unittest.TestCase):
         fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
         self.env = dict(os.environ, PATH=str(root), FAKE_KUBECTL_LOG=str(self.log))
 
+    def install_fake(self, body):
+        fake = Path(self.temp.name) / 'kubectl'
+        fake.write_text('#!' + sys.executable + '\n' + body)
+        fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
+
     def cli(self, payload, args=('--namespace', 'phoenix', '--context', 'ctx'), env=None):
         return subprocess.run([sys.executable, '-B', str(SCRIPT), *args], input=payload,
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -171,6 +177,46 @@ class ConnectionSecretsCliTest(unittest.TestCase):
         self.assertEqual(denied.stdout, b'')
         self.assertNotIn(b'canary', denied.stderr)
         self.assertEqual(self.log.read_text(), 'called\ncalled\n')
+
+    def test_cli_oversize_output_terminates_and_reaps_before_completion(self):
+        marker = Path(self.temp.name) / 'finished'
+        pidfile = Path(self.temp.name) / 'pid'
+        self.install_fake('import os, pathlib, sys\n'
+                          'pathlib.Path(os.environ["FAKE_PID"]).write_text(str(os.getpid()))\n'
+                          'sys.stderr.write("canary-secret-stderr")\n'
+                          'for _ in range(128):\n'
+                          '    sys.stdout.buffer.write(b"api-key\\n" + b"x" * 65528)\n'
+                          '    sys.stdout.buffer.flush()\n'
+                          'pathlib.Path(os.environ["FAKE_FINISHED"]).write_text("finished")\n')
+        env = dict(self.env, FAKE_PID=str(pidfile), FAKE_FINISHED=str(marker))
+        result = self.cli(b'[{"name":"ok","key":"api-key"}]', env=env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, b'')
+        self.assertEqual(result.stderr, b'connection_secret_unreadable: /references\n')
+        self.assertTrue(pidfile.is_file())
+        self.assertFalse(marker.exists(), 'child must stop before finishing 8 MiB of stdout')
+        with self.assertRaises(ProcessLookupError):
+            os.kill(int(pidfile.read_text()), 0)  # child reaped, not left alive/zombie
+
+    def test_bounded_adapter_timeout_terminates_and_reaps(self):
+        pidfile = Path(self.temp.name) / 'pid'
+        marker = Path(self.temp.name) / 'finished'
+        self.install_fake('import os, pathlib, time\n'
+                          'pathlib.Path(os.environ["FAKE_PID"]).write_text(str(os.getpid()))\n'
+                          'time.sleep(3)\n'
+                          'pathlib.Path(os.environ["FAKE_FINISHED"]).write_text("finished")\n')
+        env = dict(self.env, FAKE_PID=str(pidfile), FAKE_FINISHED=str(marker))
+        with patch.dict(os.environ, env, clear=True):
+            with self.assertRaises(subprocess.TimeoutExpired):
+                checker._run_bounded(['kubectl', '--context=ctx', '--namespace=phoenix',
+                                      '--request-timeout=30s', 'get', 'secret', '-o',
+                                      'go-template=' + checker.KEYS_TEMPLATE, 'ok'],
+                                     stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                     timeout=0.4, check=False)
+        self.assertTrue(pidfile.is_file())
+        self.assertFalse(marker.exists())
+        with self.assertRaises(ProcessLookupError):
+            os.kill(int(pidfile.read_text()), 0)
 
     def test_cli_invalid_input_never_executes_fake(self):
         for payload in (b'[{"name":"ok","key":"key"},{"name":"bad/name","key":"x"}]',

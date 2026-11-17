@@ -7,9 +7,12 @@ Present empty values pass; Engine/Agent runtime validates blank, UTF-8, NUL,
 size and header bytes. Future integration must gate release and authoring first.
 """
 import json
+import os
 import re
+import select
 import subprocess
 import sys
+import time
 from typing import Callable
 
 from connection_contract import ContractError, SecretKeyRef
@@ -33,6 +36,36 @@ def _valid_key(value):
 def _valid_name(value):
     return (isinstance(value, str) and len(value) <= 253 and
             _SECRET_NAME.fullmatch(value) is not None)
+
+
+def _run_bounded(argv, *, stdout, stderr, timeout, check):
+    """Capture at most MAX_OUTPUT+1 bytes and reap the direct child on every exit."""
+    process = subprocess.Popen(argv, stdout=stdout, stderr=stderr)
+    output = bytearray()
+    deadline = time.monotonic() + timeout
+    try:
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0 or not select.select([process.stdout], [], [], remaining)[0]:
+                raise subprocess.TimeoutExpired(argv, timeout)
+            chunk = os.read(process.stdout.fileno(), min(65536, MAX_OUTPUT + 1 - len(output)))
+            if not chunk:
+                break
+            output.extend(chunk)
+            if len(output) > MAX_OUTPUT:
+                raise subprocess.SubprocessError('bounded Secret key output exceeded')
+        process.wait(timeout=max(0, deadline - time.monotonic()))
+        return subprocess.CompletedProcess(argv, process.returncode, bytes(output))
+    finally:
+        try:
+            if process.poll() is None:
+                try:
+                    process.kill()
+                except ProcessLookupError:
+                    pass  # Already exited between poll and kill; still reap it.
+            process.wait()
+        finally:
+            process.stdout.close()
 
 
 def check_secret_references(refs: tuple[SecretKeyRef, ...], namespace: str,
@@ -96,7 +129,7 @@ def main():
             if not isinstance(entry, dict) or set(entry) != {'name', 'key'}:
                 raise ContractError('connection_secret_invalid', '/references')
             refs.append(SecretKeyRef(entry['name'], entry['key']))
-        check_secret_references(tuple(refs), sys.argv[2], sys.argv[4], subprocess.run)
+        check_secret_references(tuple(refs), sys.argv[2], sys.argv[4], _run_bounded)
     except ContractError as error:
         print(error.code + ': ' + error.path, file=sys.stderr)
         return 1
