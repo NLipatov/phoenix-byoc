@@ -1,0 +1,729 @@
+[
+  {
+    "id": "additional/bedrock-role-session-platform",
+    "kind": "values",
+    "applicability": "connection-validation",
+    "input": {
+      "llm": {
+        "CONFIG_VERSION": "1",
+        "connections": {
+          "example": {
+            "PLATFORM": "aws-bedrock",
+            "PUBLISHER": "anthropic",
+            "AUTH_MODE": "aws-workload",
+            "API": "bedrock-converse-stream",
+            "NATIVE_PROVIDER": "amazon-bedrock",
+            "NATIVE_ENV_REFS_JSON": {
+              "AWS_REGION": "AWS_REGION",
+              "AWS_ROLE_ARN": "AWS_ROLE_ARN",
+              "AWS_WEB_IDENTITY_TOKEN_FILE": "AWS_WEB_IDENTITY_TOKEN_FILE",
+              "AWS_ROLE_SESSION_NAME": "SESSION_NAME"
+            }
+          }
+        },
+        "env": {
+          "AWS_REGION": "us-east-1"
+        },
+        "platformEnv": [
+          "AWS_ROLE_ARN",
+          "AWS_WEB_IDENTITY_TOKEN_FILE",
+          "SESSION_NAME"
+        ]
+      },
+      "agentInputDelivery": {
+        "enabled": true,
+        "allowedEnterpriseIds": [
+          "00000000-0000-4000-8000-000000000001"
+        ]
+      }
+    },
+    "expected": {
+      "structural": true,
+      "semantic": true,
+      "capability": "blocked"
+    }
+  },
+  {
+    "id": "additional/bedrock-role-session-plain-rejected",
+    "kind": "values",
+    "applicability": "connection-validation",
+    "input": {
+      "llm": {
+        "CONFIG_VERSION": "1",
+        "connections": {
+          "example": {
+            "PLATFORM": "aws-bedrock",
+            "PUBLISHER": "anthropic",
+            "AUTH_MODE": "aws-workload",
+            "API": "bedrock-converse-stream",
+            "NATIVE_PROVIDER": "amazon-bedrock",
+            "NATIVE_ENV_REFS_JSON": {
+              "AWS_REGION": "AWS_REGION",
+              "AWS_ROLE_ARN": "AWS_ROLE_ARN",
+              "AWS_WEB_IDENTITY_TOKEN_FILE": "AWS_WEB_IDENTITY_TOKEN_FILE",
+              "AWS_ROLE_SESSION_NAME": "SESSION_NAME"
+            }
+          }
+        },
+        "env": {
+          "AWS_REGION": "us-east-1",
+          "SESSION_NAME": "synthetic-session"
+        },
+        "platformEnv": [
+          "AWS_ROLE_ARN",
+          "AWS_WEB_IDENTITY_TOKEN_FILE"
+        ]
+      },
+      "agentInputDelivery": {
+        "enabled": true,
+        "allowedEnterpriseIds": [
+          "00000000-0000-4000-8000-000000000001"
+        ]
+      }
+    },
+    "expected": {
+      "structural": true,
+      "semantic": false,
+      "capability": "not-applicable",
+      "code": "source_required",
+      "path": "/llm/platformEnv/SESSION_NAME"
+    }
+  },
+  {
+    "id": "additional/bedrock-platform-header",
+    "kind": "values",
+    "applicability": "connection-validation",
+    "input": {
+      "llm": {
+        "CONFIG_VERSION": "1",
+        "connections": {
+          "example": {
+            "PLATFORM": "aws-bedrock",
+            "PUBLISHER": "anthropic",
+            "AUTH_MODE": "aws-workload",
+            "API": "bedrock-converse-stream",
+            "NATIVE_PROVIDER": "amazon-bedrock",
+            "NATIVE_ENV_REFS_JSON": {
+              "AWS_REGION": "AWS_REGION",
+              "AWS_ROLE_ARN": "AWS_ROLE_ARN",
+              "AWS_WEB_IDENTITY_TOKEN_FILE": "AWS_WEB_IDENTITY_TOKEN_FILE"
+            },
+            "HEADERS_JSON": {
+              "X-Role": "$AWS_ROLE_ARN"
+            }
+          }
+        },
+        "env": {
+          "AWS_REGION": "us-east-1"
+        },
+        "platformEnv": [
+          "AWS_ROLE_ARN",
+          "AWS_WEB_IDENTITY_TOKEN_FILE"
+        ]
+      },
+      "agentInputDelivery": {
+        "enabled": true,
+        "allowedEnterpriseIds": [
+          "00000000-0000-4000-8000-000000000001"
+        ]
+      }
+    },
+    "expected": {
+      "structural": true,
+      "semantic": true,
+      "capability": "blocked"
+    }
+  },
+  {
+    "id": "additional/bedrock-plain-header",
+    "kind": "values",
+    "applicability": "connection-validation",
+    "input": {
+      "llm": {
+        "CONFIG_VERSION": "1",
+        "connections": {
+          "example": {
+            "PLATFORM": "aws-bedrock",
+            "PUBLISHER": "anthropic",
+            "AUTH_MODE": "aws-workload",
+            "API": "bedrock-converse-stream",
+            "NATIVE_PROVIDER": "amazon-bedrock",
+            "NATIVE_ENV_REFS_JSON": {
+              "AWS_REGION": "AWS_REGION",
+              "AWS_ROLE_ARN": "AWS_ROLE_ARN",
+              "AWS_WEB_IDENTITY_TOKEN_FILE": "AWS_WEB_IDENTITY_TOKEN_FILE"
+            },
+            "HEADERS_JSON": {
+              "X-Region": "$AWS_REGION"
+            }
+          }
+        },
+        "env": {
+          "AWS_REGION": "us-east-1"
+        },
+        "platformEnv": [
+          "AWS_ROLE_ARN",
+          "AWS_WEB_IDENTITY_TOKEN_FILE"
+        ]
+      },
+      "agentInputDelivery": {
+        "enabled": true,
+        "allowedEnterpriseIds": [
+          "00000000-0000-4000-8000-000000000001"
+        ]
+      }
+    },
+    "expected": {
+      "structural": true,
+      "semantic": true,
+      "capability": "blocked"
+    }
+  },
+  {
+    "id": "additional/bedrock-region-tab",
+    "kind": "values",
+    "applicability": "connection-validation",
+    "input": {
+      "llm": {
+        "CONFIG_VERSION": "1",
+        "connections": {
+          "example": {
+            "PLATFORM": "aws-bedrock",
+            "PUBLISHER": "anthropic",
+            "AUTH_MODE": "aws-workload",
+            "API": "bedrock-converse-stream",
+            "NATIVE_PROVIDER": "amazon-bedrock",
+            "NATIVE_ENV_REFS_JSON": {
+              "AWS_REGION": "AWS_REGION",
+              "AWS_ROLE_ARN": "AWS_ROLE_ARN",
+              "AWS_WEB_IDENTITY_TOKEN_FILE": "AWS_WEB_IDENTITY_TOKEN_FILE"
+            }
+          }
+        },
+        "env": {
+          "AWS_REGION": "us\teast"
+        },
+        "platformEnv": [
+          "AWS_ROLE_ARN",
+          "AWS_WEB_IDENTITY_TOKEN_FILE"
+        ]
+      },
+      "agentInputDelivery": {
+        "enabled": true,
+        "allowedEnterpriseIds": [
+          "00000000-0000-4000-8000-000000000001"
+        ]
+      }
+    },
+    "expected": {
+      "structural": true,
+      "semantic": false,
+      "capability": "not-applicable",
+      "code": "source_required",
+      "path": "/llm/env/AWS_REGION"
+    }
+  },
+  {
+    "id": "additional/bedrock-region-c1",
+    "kind": "values",
+    "applicability": "connection-validation",
+    "input": {
+      "llm": {
+        "CONFIG_VERSION": "1",
+        "connections": {
+          "example": {
+            "PLATFORM": "aws-bedrock",
+            "PUBLISHER": "anthropic",
+            "AUTH_MODE": "aws-workload",
+            "API": "bedrock-converse-stream",
+            "NATIVE_PROVIDER": "amazon-bedrock",
+            "NATIVE_ENV_REFS_JSON": {
+              "AWS_REGION": "AWS_REGION",
+              "AWS_ROLE_ARN": "AWS_ROLE_ARN",
+              "AWS_WEB_IDENTITY_TOKEN_FILE": "AWS_WEB_IDENTITY_TOKEN_FILE"
+            }
+          }
+        },
+        "env": {
+          "AWS_REGION": "useast"
+        },
+        "platformEnv": [
+          "AWS_ROLE_ARN",
+          "AWS_WEB_IDENTITY_TOKEN_FILE"
+        ]
+      },
+      "agentInputDelivery": {
+        "enabled": true,
+        "allowedEnterpriseIds": [
+          "00000000-0000-4000-8000-000000000001"
+        ]
+      }
+    },
+    "expected": {
+      "structural": true,
+      "semantic": false,
+      "capability": "not-applicable",
+      "code": "source_required",
+      "path": "/llm/env/AWS_REGION"
+    }
+  },
+  {
+    "id": "additional/header-referenced-tab",
+    "kind": "values",
+    "applicability": "connection-validation",
+    "input": {
+      "llm": {
+        "CONFIG_VERSION": "1",
+        "connections": {
+          "example": {
+            "PLATFORM": "portkey",
+            "PUBLISHER": "openai",
+            "AUTH_MODE": "api-key",
+            "API": "openai-completions",
+            "BASE_URL": "https://gateway.example.invalid/v1",
+            "API_KEY_ENV": "EXAMPLE_KEY",
+            "HEADERS_JSON": {
+              "X-Trace": "$TRACE"
+            }
+          }
+        },
+        "secretEnv": {
+          "EXAMPLE_KEY": {
+            "name": "synthetic-provider-secret",
+            "key": "api-key"
+          }
+        },
+        "env": {
+          "TRACE": "a\tb"
+        }
+      },
+      "agentInputDelivery": {
+        "enabled": true,
+        "allowedEnterpriseIds": [
+          "00000000-0000-4000-8000-000000000001"
+        ]
+      }
+    },
+    "expected": {
+      "structural": true,
+      "semantic": false,
+      "capability": "not-applicable",
+      "code": "invalid_header",
+      "path": "HEADERS_JSON"
+    }
+  },
+  {
+    "id": "additional/header-referenced-c1",
+    "kind": "values",
+    "applicability": "connection-validation",
+    "input": {
+      "llm": {
+        "CONFIG_VERSION": "1",
+        "connections": {
+          "example": {
+            "PLATFORM": "portkey",
+            "PUBLISHER": "openai",
+            "AUTH_MODE": "api-key",
+            "API": "openai-completions",
+            "BASE_URL": "https://gateway.example.invalid/v1",
+            "API_KEY_ENV": "EXAMPLE_KEY",
+            "HEADERS_JSON": {
+              "X-Trace": "$TRACE"
+            }
+          }
+        },
+        "secretEnv": {
+          "EXAMPLE_KEY": {
+            "name": "synthetic-provider-secret",
+            "key": "api-key"
+          }
+        },
+        "env": {
+          "TRACE": "ab"
+        }
+      },
+      "agentInputDelivery": {
+        "enabled": true,
+        "allowedEnterpriseIds": [
+          "00000000-0000-4000-8000-000000000001"
+        ]
+      }
+    },
+    "expected": {
+      "structural": true,
+      "semantic": false,
+      "capability": "not-applicable",
+      "code": "invalid_header",
+      "path": "HEADERS_JSON"
+    }
+  },
+  {
+    "id": "additional/header-literal-c1",
+    "kind": "values",
+    "applicability": "connection-validation",
+    "input": {
+      "llm": {
+        "CONFIG_VERSION": "1",
+        "connections": {
+          "example": {
+            "PLATFORM": "portkey",
+            "PUBLISHER": "openai",
+            "AUTH_MODE": "api-key",
+            "API": "openai-completions",
+            "BASE_URL": "https://gateway.example.invalid/v1",
+            "API_KEY_ENV": "EXAMPLE_KEY",
+            "HEADERS_JSON": {
+              "X-Trace": "ab"
+            }
+          }
+        },
+        "secretEnv": {
+          "EXAMPLE_KEY": {
+            "name": "synthetic-provider-secret",
+            "key": "api-key"
+          }
+        }
+      },
+      "agentInputDelivery": {
+        "enabled": true,
+        "allowedEnterpriseIds": [
+          "00000000-0000-4000-8000-000000000001"
+        ]
+      }
+    },
+    "expected": {
+      "structural": true,
+      "semantic": false,
+      "capability": "not-applicable",
+      "code": "invalid_header",
+      "path": "HEADERS_JSON"
+    }
+  },
+  {
+    "id": "additional/url-c1",
+    "kind": "values",
+    "applicability": "connection-validation",
+    "input": {
+      "llm": {
+        "CONFIG_VERSION": "1",
+        "connections": {
+          "example": {
+            "PLATFORM": "portkey",
+            "PUBLISHER": "openai",
+            "AUTH_MODE": "api-key",
+            "API": "openai-completions",
+            "BASE_URL": "https://gateway.example.invalid/",
+            "API_KEY_ENV": "EXAMPLE_KEY"
+          }
+        },
+        "secretEnv": {
+          "EXAMPLE_KEY": {
+            "name": "synthetic-provider-secret",
+            "key": "api-key"
+          }
+        }
+      },
+      "agentInputDelivery": {
+        "enabled": true,
+        "allowedEnterpriseIds": [
+          "00000000-0000-4000-8000-000000000001"
+        ]
+      }
+    },
+    "expected": {
+      "structural": true,
+      "semantic": false,
+      "capability": "not-applicable",
+      "code": "invalid_authoring",
+      "path": "/llm/connections/example/BASE_URL"
+    }
+  },
+  {
+    "id": "additional/connection-constructor",
+    "kind": "values",
+    "applicability": "connection-validation",
+    "input": {
+      "llm": {
+        "CONFIG_VERSION": "1",
+        "connections": {
+          "constructor": {
+            "PLATFORM": "portkey",
+            "PUBLISHER": "openai",
+            "AUTH_MODE": "api-key",
+            "API": "openai-completions",
+            "BASE_URL": "https://gateway.example.invalid/v1",
+            "API_KEY_ENV": "EXAMPLE_KEY"
+          }
+        },
+        "secretEnv": {
+          "EXAMPLE_KEY": {
+            "name": "synthetic-provider-secret",
+            "key": "api-key"
+          }
+        }
+      },
+      "agentInputDelivery": {
+        "enabled": true,
+        "allowedEnterpriseIds": [
+          "00000000-0000-4000-8000-000000000001"
+        ]
+      }
+    },
+    "expected": {
+      "structural": true,
+      "semantic": false,
+      "capability": "not-applicable",
+      "code": "invalid_authoring",
+      "path": "/llm/connections"
+    }
+  },
+  {
+    "id": "additional/connection-prototype",
+    "kind": "values",
+    "applicability": "connection-validation",
+    "input": {
+      "llm": {
+        "CONFIG_VERSION": "1",
+        "connections": {
+          "prototype": {
+            "PLATFORM": "portkey",
+            "PUBLISHER": "openai",
+            "AUTH_MODE": "api-key",
+            "API": "openai-completions",
+            "BASE_URL": "https://gateway.example.invalid/v1",
+            "API_KEY_ENV": "EXAMPLE_KEY"
+          }
+        },
+        "secretEnv": {
+          "EXAMPLE_KEY": {
+            "name": "synthetic-provider-secret",
+            "key": "api-key"
+          }
+        }
+      },
+      "agentInputDelivery": {
+        "enabled": true,
+        "allowedEnterpriseIds": [
+          "00000000-0000-4000-8000-000000000001"
+        ]
+      }
+    },
+    "expected": {
+      "structural": true,
+      "semantic": false,
+      "capability": "not-applicable",
+      "code": "invalid_authoring",
+      "path": "/llm/connections"
+    }
+  },
+  {
+    "id": "additional/header-member-__proto__",
+    "kind": "values",
+    "applicability": "flat-env-decoder",
+    "input": {
+      "llm": {
+        "CONFIG_VERSION": "1",
+        "connections": {
+          "example": {
+            "PLATFORM": "portkey",
+            "PUBLISHER": "openai",
+            "AUTH_MODE": "api-key",
+            "API": "openai-completions",
+            "BASE_URL": "https://gateway.example.invalid/v1",
+            "API_KEY_ENV": "EXAMPLE_KEY",
+            "HEADERS_JSON": {
+              "__proto__": "value"
+            }
+          }
+        },
+        "secretEnv": {
+          "EXAMPLE_KEY": {
+            "name": "synthetic-provider-secret",
+            "key": "api-key"
+          }
+        }
+      },
+      "agentInputDelivery": {
+        "enabled": true,
+        "allowedEnterpriseIds": [
+          "00000000-0000-4000-8000-000000000001"
+        ]
+      }
+    },
+    "expected": {
+      "structural": true,
+      "semantic": false,
+      "capability": "not-applicable",
+      "code": "invalid_connection_env",
+      "path": "PHOENIX_LLM_EXAMPLE_HEADERS_JSON"
+    }
+  },
+  {
+    "id": "additional/header-member-constructor",
+    "kind": "values",
+    "applicability": "flat-env-decoder",
+    "input": {
+      "llm": {
+        "CONFIG_VERSION": "1",
+        "connections": {
+          "example": {
+            "PLATFORM": "portkey",
+            "PUBLISHER": "openai",
+            "AUTH_MODE": "api-key",
+            "API": "openai-completions",
+            "BASE_URL": "https://gateway.example.invalid/v1",
+            "API_KEY_ENV": "EXAMPLE_KEY",
+            "HEADERS_JSON": {
+              "constructor": "value"
+            }
+          }
+        },
+        "secretEnv": {
+          "EXAMPLE_KEY": {
+            "name": "synthetic-provider-secret",
+            "key": "api-key"
+          }
+        }
+      },
+      "agentInputDelivery": {
+        "enabled": true,
+        "allowedEnterpriseIds": [
+          "00000000-0000-4000-8000-000000000001"
+        ]
+      }
+    },
+    "expected": {
+      "structural": true,
+      "semantic": false,
+      "capability": "not-applicable",
+      "code": "invalid_connection_env",
+      "path": "PHOENIX_LLM_EXAMPLE_HEADERS_JSON"
+    }
+  },
+  {
+    "id": "additional/header-member-prototype",
+    "kind": "values",
+    "applicability": "flat-env-decoder",
+    "input": {
+      "llm": {
+        "CONFIG_VERSION": "1",
+        "connections": {
+          "example": {
+            "PLATFORM": "portkey",
+            "PUBLISHER": "openai",
+            "AUTH_MODE": "api-key",
+            "API": "openai-completions",
+            "BASE_URL": "https://gateway.example.invalid/v1",
+            "API_KEY_ENV": "EXAMPLE_KEY",
+            "HEADERS_JSON": {
+              "prototype": "value"
+            }
+          }
+        },
+        "secretEnv": {
+          "EXAMPLE_KEY": {
+            "name": "synthetic-provider-secret",
+            "key": "api-key"
+          }
+        }
+      },
+      "agentInputDelivery": {
+        "enabled": true,
+        "allowedEnterpriseIds": [
+          "00000000-0000-4000-8000-000000000001"
+        ]
+      }
+    },
+    "expected": {
+      "structural": true,
+      "semantic": false,
+      "capability": "not-applicable",
+      "code": "invalid_connection_env",
+      "path": "PHOENIX_LLM_EXAMPLE_HEADERS_JSON"
+    }
+  },
+  {
+    "id": "additional/named-unused-plain-nul",
+    "kind": "values",
+    "applicability": "connection-validation",
+    "input": {
+      "llm": {
+        "CONFIG_VERSION": "1",
+        "connections": {
+          "example": {
+            "PLATFORM": "portkey",
+            "PUBLISHER": "openai",
+            "AUTH_MODE": "api-key",
+            "API": "openai-completions",
+            "BASE_URL": "https://gateway.example.invalid/v1",
+            "API_KEY_ENV": "EXAMPLE_KEY"
+          }
+        },
+        "secretEnv": {
+          "EXAMPLE_KEY": {
+            "name": "synthetic-provider-secret",
+            "key": "api-key"
+          }
+        },
+        "env": {
+          "PAD": "a\u0000b"
+        }
+      },
+      "agentInputDelivery": {
+        "enabled": true,
+        "allowedEnterpriseIds": [
+          "00000000-0000-4000-8000-000000000001"
+        ]
+      }
+    },
+    "expected": {
+      "structural": true,
+      "semantic": false,
+      "capability": "not-applicable",
+      "code": "source_required",
+      "path": "/sources/plain/PAD"
+    }
+  },
+  {
+    "id": "additional/generic-plain-nul",
+    "kind": "values",
+    "applicability": "engine-full-envelope",
+    "input": {
+      "agentInputDelivery": {
+        "enabled": true,
+        "allowedEnterpriseIds": [
+          "00000000-0000-4000-8000-000000000001"
+        ],
+        "env": {
+          "PAD": "a\u0000b"
+        }
+      }
+    },
+    "expected": {
+      "structural": true,
+      "semantic": false,
+      "capability": "not-applicable"
+    }
+  },
+  {
+    "id": "additional/generic-empty-plain",
+    "kind": "values",
+    "applicability": "engine-full-envelope",
+    "input": {
+      "agentInputDelivery": {
+        "enabled": true,
+        "allowedEnterpriseIds": [
+          "00000000-0000-4000-8000-000000000001"
+        ],
+        "env": {
+          "PAD": ""
+        }
+      }
+    },
+    "expected": {
+      "structural": true,
+      "semantic": true,
+      "capability": "blocked"
+    }
+  }
+]

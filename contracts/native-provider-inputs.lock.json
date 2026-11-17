@@ -3,26 +3,32 @@
   "owners": {
     "agents": {
       "path": "contracts/llm-connections/v1",
-      "supplierCommit": "0fa8f1a41b314c76b3a8608ccdc64853f930c8ec",
-      "archiveSha256": "4f3e692d90550e2a8ce1a9cbf9865bbcc0cd6262c5b2b7b766095dbc7417ed5d",
-      "manifestSha256": "1867e376520075035542dbdbb5078479546e7746900d8e480872f88448a2a91f",
+      "supplierCommit": "00e558d3b8a09d93ac0a6fd2e2c6a89a1cd79814",
+      "archiveSha256": "a29032896e56b3ab19ecb30b08333e6d640a4073065557326271f13e794f1e53",
+      "manifestSha256": "889489443a2a9d6ce5f7644975b079035b7177cc43a6c8c208a2070522f55e4d",
       "manifest": {
         "formatVersion": 1,
         "contractVersion": "1",
         "deliveryVersion": "1",
         "piVersion": "1.4.0",
-        "sourceRevision": "c95bc5d969c3a684c80f8eebfffa9920810ea2d492f27a355d5f10f3b3b71bae",
+        "sourceRevision": "706d0348edf69a94cc9a76d2d76f7eb3c0567fac0daaec96cb56ebdd044f504a",
         "files": {
-          "README.md": "71f9939df289084aadd481fe4808f8115b55763ed4738a5078d551157b17acbe",
+          "README.md": "7d077ab0358b48b41fd655a487c9fc8bb9cae251706b20d3a6623e1ba88f2564",
+          "authoring-vectors.json": "8f7c0aba07b7d64d8a073d3d47c25a9af4a875b68f810b541c718d5f157f56b7",
           "capabilities.json": "99064e65da8fd238eb0e9146b25953804ab70617034573786943fbf0e1e559de",
+          "capability-vectors.json": "7b2608bca89a0c8c3b15c03372fa6e79158158a45d61c1a017a335e6012a2925",
+          "semantic-rules.json": "9f73711ec787c1e5b095fb021ff4f409d54141bfc9e6ac54f4fd7d5c5392f61e",
           "semantic-vectors.json": "500e27581fb87321bb87dd8b599a4150ba27eaab4a9f385dec4ae52fba1b6092",
           "transport-vectors.json": "cf466d903722987ff51574795c32defa9ec5c5327c511aa0821568a4058b4149",
           "values.schema.json": "0556b9bc85894f2984a4428afe61000b2707c183ef0a1e3ab55d77191ef16b93"
         }
       },
       "files": {
-        "README.md": "71f9939df289084aadd481fe4808f8115b55763ed4738a5078d551157b17acbe",
+        "README.md": "7d077ab0358b48b41fd655a487c9fc8bb9cae251706b20d3a6623e1ba88f2564",
+        "authoring-vectors.json": "8f7c0aba07b7d64d8a073d3d47c25a9af4a875b68f810b541c718d5f157f56b7",
         "capabilities.json": "99064e65da8fd238eb0e9146b25953804ab70617034573786943fbf0e1e559de",
+        "capability-vectors.json": "7b2608bca89a0c8c3b15c03372fa6e79158158a45d61c1a017a335e6012a2925",
+        "semantic-rules.json": "9f73711ec787c1e5b095fb021ff4f409d54141bfc9e6ac54f4fd7d5c5392f61e",
         "semantic-vectors.json": "500e27581fb87321bb87dd8b599a4150ba27eaab4a9f385dec4ae52fba1b6092",
         "transport-vectors.json": "cf466d903722987ff51574795c32defa9ec5c5327c511aa0821568a4058b4149",
         "values.schema.json": "0556b9bc85894f2984a4428afe61000b2707c183ef0a1e3ab55d77191ef16b93"

@@ -69,6 +69,20 @@ class ConnectionContractTest(unittest.TestCase):
         (self.agents / 'unexpected.json').write_text('{}')
         self.rejects('extra_member')
 
+    def test_new_owner_members_are_pinned_and_complete(self):
+        bundle = contract.load_contract(self.root)
+        self.assertEqual({'semantic-rules.json', 'authoring-vectors.json', 'capability-vectors.json'} <=
+                         set(bundle.digests['agents']), True)
+        self.assertEqual(bundle.semantic_rules.name, 'semantic-rules.json')
+        self.assertEqual(bundle.authoring_vectors.name, 'authoring-vectors.json')
+        self.assertEqual(bundle.capability_vectors.name, 'capability-vectors.json')
+        rules = self.agents / 'semantic-rules.json'
+        original = rules.read_bytes()
+        rules.unlink()
+        self.rejects('missing_member')
+        rules.write_bytes(original + b' ')
+        self.rejects('digest_mismatch')
+
     def test_directory_membership_rejects_first_extra_without_exhausting_stream(self):
         original = contract.os.scandir
         target = self.agents

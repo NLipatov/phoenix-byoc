@@ -10,7 +10,7 @@ import stat
 from typing import Dict
 from urllib.parse import urlsplit
 
-LOCK_SHA256 = 'e5db4a3529d6a8d917f7f340e4e72ad0be5135c66894ececa2edbbdafaf35525'
+LOCK_SHA256 = 'd5c5406aff1a9b9d8a4166373da86e618eadcda72b287a14d3de0aa8df38291b'
 MAX_LOCK_BYTES = 65536
 MAX_FILE_BYTES = 1024 * 1024
 MAX_TOTAL_BYTES = 4 * MAX_FILE_BYTES
@@ -33,6 +33,9 @@ class ContractBundle:
     transport: Path
     engine_vectors: Path
     capabilities: Path
+    semantic_rules: Path
+    authoring_vectors: Path
+    capability_vectors: Path
     manifests: Dict[str, Path]
     digests: Dict[str, Dict[str, str]]
 
@@ -208,7 +211,8 @@ def load_contract(root: Path) -> ContractBundle:
         raise ContractError('version_mismatch', 'contracts/native-provider-inputs.lock.json')
     return ContractBundle(schema_path, agents['semantic-vectors.json'], agents['transport-vectors.json'],
                           engine['contract.json'], engine['fixtures.json'], agents['capabilities.json'],
-                          manifests, digests)
+                          agents['semantic-rules.json'], agents['authoring-vectors.json'],
+                          agents['capability-vectors.json'], manifests, digests)
 
 
 def verify_contract_files(root: Path) -> None:
@@ -235,19 +239,6 @@ class ValidatedInputs:
 # This is not another route catalog or a schema validation interpreter.
 _HEADER_TOKEN = re.compile(r"[!#$%&'*+.^_`|~0-9A-Za-z-]+\Z")
 _HEADER_REF = re.compile(r'\$([A-Z][A-Z0-9_]*)\Z')
-# Seven native keys require an actual sandbox platform source at runtime;
-# a declaration here does not certify that source or its identity.
-_PLATFORM_NATIVE_KEYS = frozenset((
-    'AWS_ROLE_ARN', 'AWS_WEB_IDENTITY_TOKEN_FILE', 'AWS_ROLE_SESSION_NAME',
-    'AWS_CONTAINER_CREDENTIALS_FULL_URI', 'AWS_CONTAINER_CREDENTIALS_RELATIVE_URI',
-    'AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE', 'AZURE_FEDERATED_TOKEN_FILE',
-))
-_FORBIDDEN_MEMBER_NAMES = frozenset(('__proto__', 'constructor', 'prototype'))
-_PROTECTED_HEADERS = frozenset((
-    'authorization', 'proxy-authorization', 'x-api-key', 'api-key',
-    'x-portkey-api-key', 'host', 'cookie', 'anthropic-version',
-    'anthropic-beta', 'api-version',
-))
 
 
 def _schema_helm(config, bundle):
@@ -323,6 +314,13 @@ def validate_connections(config: dict, bundle: ContractBundle) -> ValidatedInput
     llm = config.get('llm', {})
     generic = generic if generic is not None else {}
     # Schema was checked above: no defaults for malformed supplied null/empty objects.
+    rules = json.loads(bundle.semantic_rules.read_bytes())
+    control_ranges = rules['controls']['disallowedCodePointRanges']
+    forbidden_connections = frozenset(rules['forbidden']['connectionNames'])
+    forbidden_members = frozenset(rules['forbidden']['jsonMemberNames'])
+    platform_native_keys = frozenset(rules['references']['nativePlatformKeys'])
+    protected_headers = frozenset(rules['headers']['protectedNamesCaseInsensitive'])
+    header_sources = frozenset(rules['references']['headerSources'])
     enabled = generic.get('enabled', False)
     llm_env = llm.get('env', {})
     llm_secrets = llm.get('secretEnv', {})
@@ -366,7 +364,7 @@ def validate_connections(config: dict, bundle: ContractBundle) -> ValidatedInput
         connections = llm['connections']
         plain['PHOENIX_LLM_CONNECTIONS'] = ','.join(sorted(connections))
         for name, connection in sorted(connections.items()):
-            if name in _FORBIDDEN_MEMBER_NAMES:
+            if name in forbidden_connections:
                 raise ContractError('invalid_authoring', '/llm/connections')
             route = families.get((connection['PLATFORM'], connection['PUBLISHER']))
             if route is None:
@@ -388,14 +386,14 @@ def validate_connections(config: dict, bundle: ContractBundle) -> ValidatedInput
                 raise ContractError('secret_reference_required', path + '/API_KEY_ENV')
             refs = connection.get('NATIVE_ENV_REFS_JSON', {})
             for native_key, destination in refs.items():
-                if native_key in _FORBIDDEN_MEMBER_NAMES:
+                if native_key in forbidden_members:
                     raise ContractError('invalid_authoring', path + '/NATIVE_ENV_REFS_JSON')
-                if native_key in _PLATFORM_NATIVE_KEYS:
+                if native_key in platform_native_keys:
                     if destination not in platform:
                         raise ContractError('source_required', path + '/NATIVE_ENV_REFS_JSON')
-                elif destination not in plain or not plain[destination] or _has_control(plain[destination]):
+                elif destination not in plain or not plain[destination] or _has_control(plain[destination], control_ranges):
                     raise ContractError('source_required', path + '/NATIVE_ENV_REFS_JSON')
-            if 'BASE_URL' in connection and not _valid_url(connection['BASE_URL']):
+            if 'BASE_URL' in connection and not _valid_url(connection['BASE_URL'], rules['urls']['scheme'], control_ranges):
                 raise ContractError('invalid_authoring', path + '/BASE_URL')
             headers = connection.get('HEADERS_JSON', {})
             seen = set()
@@ -404,17 +402,19 @@ def validate_connections(config: dict, bundle: ContractBundle) -> ValidatedInput
                 if lower in seen:
                     raise ContractError('header_case_duplicate', path + '/HEADERS_JSON')
                 seen.add(lower)
-                if (header in _FORBIDDEN_MEMBER_NAMES or not _HEADER_TOKEN.fullmatch(header)
-                        or lower in _PROTECTED_HEADERS):
+                if (header in forbidden_members or not _HEADER_TOKEN.fullmatch(header)
+                        or lower in protected_headers):
                     raise ContractError('header_invalid', path + '/HEADERS_JSON')
                 ref = _HEADER_REF.fullmatch(value)
                 if ref:
                     destination = ref.group(1)
-                    if destination not in plain and destination not in secrets and destination not in platform:
+                    sources = {'plain': destination in plain, 'secrets': destination in secrets,
+                               'platform': destination in platform}
+                    if sum(sources.values()) != 1 or not any(sources[source] for source in header_sources):
                         raise ContractError('source_required', path + '/HEADERS_JSON')
-                    if destination in plain and not _header_value(plain[destination]):
+                    if destination in plain and not _header_value(plain[destination], control_ranges):
                         raise ContractError('header_invalid', path + '/HEADERS_JSON')
-                elif not _header_literal(value):
+                elif not _header_literal(value, control_ranges):
                     raise ContractError('header_invalid', path + '/HEADERS_JSON')
             prefix = 'PHOENIX_LLM_' + name.upper() + '_'
             for field, value in connection.items():
@@ -432,26 +432,27 @@ def validate_connections(config: dict, bundle: ContractBundle) -> ValidatedInput
     return ValidatedInputs(enabled, plain, secrets, tuple(sorted(platform)), tuple(sorted(required)))
 
 
-def _has_control(value):
-    return any(ord(ch) < 32 or 127 <= ord(ch) <= 159 for ch in value)
+def _has_control(value, ranges):
+    return any(low <= ord(ch) <= high for ch in value for low, high in ranges)
 
 
-def _valid_url(value):
-    if _has_control(value) or '\\' in value or '?' in value or '#' in value:
+def _valid_url(value, scheme, ranges):
+    if _has_control(value, ranges) or '\\' in value or '?' in value or '#' in value:
         return False
     try:
         url = urlsplit(value)
-        port = url.port  # Invalid numeric ports raise ValueError.
-        return (url.scheme == 'https' and bool(url.hostname) and
+        _ = url.port  # Invalid numeric ports raise ValueError.
+        return (url.scheme == scheme and bool(url.hostname) and
                 not url.username and not url.password and
                 not url.query and not url.fragment)
     except ValueError:
         return False
 
 
-def _header_value(value):
-    return bool(value) and not _has_control(value) and len(value.encode('utf-8')) <= 65536
+def _header_value(value, ranges):
+    return bool(value) and not _has_control(value, ranges) and len(value.encode('utf-8')) <= 65536
 
 
-def _header_literal(value):
-    return _header_value(value) and '$' not in value and not value.startswith('!') and '`' not in value
+def _header_literal(value, ranges):
+    return (_header_value(value, ranges) and '$' not in value
+            and not value.startswith('!') and '`' not in value)

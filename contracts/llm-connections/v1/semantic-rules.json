@@ -1,0 +1,81 @@
+{
+  "formatVersion": 1,
+  "capability": {
+    "admittedStatus": "offline-proven",
+    "matchingTuple": [
+      "route",
+      "api",
+      "authMode"
+    ],
+    "matchingCount": 1,
+    "apiWhenOmitted": "exactly one route/authMode candidate"
+  },
+  "references": {
+    "apiKeySource": "secrets",
+    "nativePlatformKeys": [
+      "AWS_ROLE_ARN",
+      "AWS_WEB_IDENTITY_TOKEN_FILE",
+      "AWS_ROLE_SESSION_NAME",
+      "AWS_CONTAINER_CREDENTIALS_FULL_URI",
+      "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI",
+      "AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE",
+      "AZURE_FEDERATED_TOKEN_FILE"
+    ],
+    "otherwiseNativeSource": "plain",
+    "headerSources": [
+      "plain",
+      "secrets",
+      "platform"
+    ],
+    "exactSourceCount": 1,
+    "equalValueCollisions": "reject across sources"
+  },
+  "forbidden": {
+    "connectionNames": [
+      "__proto__",
+      "constructor",
+      "prototype"
+    ],
+    "jsonMemberNames": [
+      "__proto__",
+      "constructor",
+      "prototype"
+    ]
+  },
+  "controls": {
+    "disallowedCodePointRanges": [
+      [
+        0,
+        31
+      ],
+      [
+        127,
+        159
+      ]
+    ],
+    "knownPlainNul": "reject via imported contracts/agent-input-delivery/v1/contract.json env.values; empty generic plain values permitted"
+  },
+  "headers": {
+    "protectedNamesCaseInsensitive": [
+      "authorization",
+      "proxy-authorization",
+      "x-api-key",
+      "api-key",
+      "x-portkey-api-key",
+      "host",
+      "cookie",
+      "anthropic-version",
+      "anthropic-beta",
+      "api-version"
+    ],
+    "uniqueNamesCaseInsensitive": true,
+    "literal": "nonempty, no dollar or leading bang, control-free, max 65536 UTF-8 bytes",
+    "referenced": "exactly one declared plain/secrets/platform destination; resolved value control-free"
+  },
+  "urls": {
+    "scheme": "https",
+    "hostnameRequired": true,
+    "userInfoQueryFragment": "reject",
+    "controls": "reject disallowedCodePointRanges"
+  }
+}

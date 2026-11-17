@@ -1,0 +1,98 @@
+[
+  {
+    "id": "additional/capability-one-offline",
+    "kind": "capability",
+    "baseId": "valid/portkey-openai/openai-completions/api-key",
+    "capabilityEntries": [
+      {
+        "route": "portkey-openai",
+        "api": "openai-completions",
+        "authMode": "api-key",
+        "status": "offline-proven"
+      }
+    ],
+    "expected": {
+      "structural": true,
+      "semantic": true,
+      "capability": "admitted"
+    }
+  },
+  {
+    "id": "additional/capability-shipped-blocked",
+    "kind": "capability",
+    "baseId": "valid/portkey-openai/openai-completions/api-key",
+    "capabilityEntries": [
+      {
+        "route": "portkey-openai",
+        "api": "openai-completions",
+        "authMode": "api-key",
+        "status": "blocked"
+      }
+    ],
+    "expected": {
+      "structural": true,
+      "semantic": true,
+      "capability": "blocked"
+    }
+  },
+  {
+    "id": "additional/capability-unknown-status",
+    "kind": "capability",
+    "baseId": "valid/portkey-openai/openai-completions/api-key",
+    "capabilityEntries": [
+      {
+        "route": "portkey-openai",
+        "api": "openai-completions",
+        "authMode": "api-key",
+        "status": "supported"
+      }
+    ],
+    "expected": {
+      "structural": true,
+      "semantic": true,
+      "capability": "blocked"
+    }
+  },
+  {
+    "id": "additional/capability-duplicate",
+    "kind": "capability",
+    "baseId": "valid/portkey-openai/openai-completions/api-key",
+    "capabilityEntries": [
+      {
+        "route": "portkey-openai",
+        "api": "openai-completions",
+        "authMode": "api-key",
+        "status": "offline-proven"
+      },
+      {
+        "route": "portkey-openai",
+        "api": "openai-completions",
+        "authMode": "api-key",
+        "status": "offline-proven"
+      }
+    ],
+    "expected": {
+      "structural": true,
+      "semantic": true,
+      "capability": "blocked"
+    }
+  },
+  {
+    "id": "additional/capability-no-tuple",
+    "kind": "capability",
+    "baseId": "valid/portkey-openai/openai-completions/api-key",
+    "capabilityEntries": [
+      {
+        "route": "portkey-openai",
+        "api": "openai-responses",
+        "authMode": "api-key",
+        "status": "offline-proven"
+      }
+    ],
+    "expected": {
+      "structural": true,
+      "semantic": true,
+      "capability": "blocked"
+    }
+  }
+]

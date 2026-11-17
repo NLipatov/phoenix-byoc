@@ -4,9 +4,11 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+from dataclasses import replace
 import secrets
 import stat
 import subprocess
+import tempfile
 import sys
 import unittest
 from unittest.mock import patch
@@ -72,6 +74,61 @@ class ConnectionValuesTest(unittest.TestCase):
                     else:
                         self.assertIn(error.code, ('connection_schema_invalid', 'llm_authoring_required',
                                                        'reserved_destination'))
+
+    def test_additional_owner_authoring_vectors(self):
+        vectors = json.loads(self.bundle.authoring_vectors.read_text())
+        self.assertEqual(len(vectors), 18)
+        self.assertEqual({v['kind'] for v in vectors}, {'values'})
+        self.assertEqual(sum(v['expected']['semantic'] for v in vectors), 4)
+        for vector in vectors:
+            with self.subTest(vector=vector['id']):
+                expected = vector['expected']
+                self.assertTrue(expected['structural'])
+                self.helm_schema(vector['input'], self.bundle)
+                if expected['semantic']:
+                    result = self.valid(vector['input'])
+                    self.assertEqual(expected['capability'], 'blocked')
+                    self.assertTrue(all(cap in {(r['route'], r['api'], r['authMode']) for r in self.capabilities}
+                                        for cap in result.required_capabilities))
+                else:
+                    self.assertNotEqual(self.invalid(vector['input']).code, 'connection_schema_invalid')
+
+    def test_owner_semantic_rules_drive_existing_checks(self):
+        rules = json.loads(self.bundle.semantic_rules.read_text())
+        self.assertEqual(rules['references']['apiKeySource'], 'secrets')
+        self.assertEqual(rules['references']['otherwiseNativeSource'], 'plain')
+        self.assertIn('without NUL', json.loads(self.bundle.transport.read_text())['env']['values'])
+        workload = copy.deepcopy(self.vectors[1]['input'])
+        self.valid(workload)
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'rules.json'
+            synthetic = copy.deepcopy(rules)
+            synthetic['references']['nativePlatformKeys'].remove('AWS_ROLE_ARN')
+            path.write_text(json.dumps(synthetic))
+            with self.assertRaises(ContractError):
+                self.validate(workload, replace(self.bundle, semantic_rules=path))
+            gateway = copy.deepcopy(next(v['input'] for v in self.vectors if v['id'].startswith('valid/portkey-anthropic/')))
+            gateway['llm']['connections']['example']['HEADERS_JSON'] = {'x-trace': 'safe'}
+            self.valid(gateway)
+            synthetic = copy.deepcopy(rules)
+            synthetic['headers']['protectedNamesCaseInsensitive'].append('x-trace')
+            path.write_text(json.dumps(synthetic))
+            with self.assertRaises(ContractError):
+                self.validate(gateway, replace(self.bundle, semantic_rules=path))
+            reserved = self.base()
+            reserved['llm']['connections']['constructor'] = reserved['llm']['connections'].pop('example')
+            self.invalid(reserved, 'invalid_authoring')
+            synthetic = copy.deepcopy(rules)
+            synthetic['forbidden']['connectionNames'].remove('constructor')
+            path.write_text(json.dumps(synthetic))
+            self.validate(reserved, replace(self.bundle, semantic_rules=path))
+            c1_header = copy.deepcopy(gateway)
+            c1_header['llm']['connections']['example']['HEADERS_JSON'] = {'x-trace': 'a\u0080b'}
+            self.invalid(c1_header, 'header_invalid')
+            synthetic = copy.deepcopy(rules)
+            synthetic['controls']['disallowedCodePointRanges'] = [[0, 31], [127, 127]]
+            path.write_text(json.dumps(synthetic))
+            self.validate(c1_header, replace(self.bundle, semantic_rules=path))
 
     def test_absent_not_falsey_llm(self):
         self.assertFalse(self.valid({}).enabled)
@@ -192,7 +249,7 @@ class ConnectionValuesTest(unittest.TestCase):
     def test_known_plain_nul_rejected_without_banning_empty_generic(self):
         generic = next(v['input'] for v in self.vectors if v['id'] == 'generic_only')
         generic = copy.deepcopy(generic)
-        generic['agentInputDelivery']['env'] = {'EMPTY': ''}
+        generic['agentInputDelivery']['env'] = {'EMPTY': '', 'MULTILINE': 'line1\nline2'}
         self.valid(generic)
         generic['agentInputDelivery']['env']['PAD'] = 'a\x00b'
         self.helm_schema(generic, self.bundle)
