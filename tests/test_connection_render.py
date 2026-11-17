@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -37,6 +38,7 @@ class ConnectionRenderTest(unittest.TestCase):
             spy.chmod(0o700)
         (cls.isolation / 'no-kubeconfig').touch()
         cls.helm = cls.pinned_tool('PHOENIX_TEST_HELM', 'helm', r'^v3\.18\.6(?:\+|$)', ('version', '--short'))
+        (cls.isolation / 'bin/helm').symlink_to(cls.helm)
         cls.helmfile = cls.pinned_tool('PHOENIX_TEST_HELMFILE', 'helmfile', r'^helmfile version 0\.171\.0\s*$', ('--version',))
         manifest = json.loads((FIXTURES / 'manifest.json').read_text())
         release = yaml.safe_load((ROOT / 'release.yaml').read_text())
@@ -267,6 +269,22 @@ class ConnectionRenderTest(unittest.TestCase):
                                  [[{'key': 'env.json', 'path': 'env.json'}, {'key': 'delivery-policy.json', 'path': 'delivery-policy.json'}]])
                 self.assertFalse(any('agent-inputs' in json.dumps(d) for d in self.objects(docs, 'Deployment') if d is not operators[0]))
 
+    def test_renamed_helm_override_reaches_schema_validation(self):
+        with tempfile.TemporaryDirectory(dir=self.work) as tmp:
+            executable = Path(tmp) / 'helm-3.18.6'
+            executable.write_text('#!/bin/sh\nexec ' + shlex.quote(self.helm) + ' "$@"\n')
+            executable.chmod(0o700)
+            environment = {'PATH': '/usr/bin:/bin', 'HOME': tmp,
+                           'PHOENIX_TEST_HELM': str(executable),
+                           'PHOENIX_TEST_HELMFILE': self.helmfile,
+                           'PYTHONDONTWRITEBYTECODE': '1'}
+            result = subprocess.run(
+                [sys.executable, '-I', '-m', 'unittest', 'discover', '-s', 'tests',
+                 '-p', 'test_connection_render.py', '-k', 'test_invalid_present_blocks_not_discarded', '-v'],
+                cwd=ROOT, env=environment, capture_output=True, text=True, timeout=90)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('Ran 1 test', result.stderr)
+
     def test_invalid_present_blocks_not_discarded(self):
         sys.path.insert(0, str(ROOT / 'scripts'))
         from connection_contract import ContractError, load_contract, validate_connections
@@ -279,7 +297,7 @@ class ConnectionRenderTest(unittest.TestCase):
                 self.assertEqual(forwarded.returncode, 0, forwarded.stderr[:300])
                 self.assertIn(key, values[0])
                 self.assertEqual(values[0][key], invalid)
-                schema_env = {'PATH': f'{Path(self.helm).parent}:/usr/bin:/bin',
+                schema_env = {'PATH': f'{self.isolation / "bin"}:/usr/bin:/bin',
                               'HOME': str(self.isolation / 'home'),
                               'KUBECONFIG': str(self.isolation / 'no-kubeconfig'),
                               'HELM_CACHE_HOME': str(self.isolation / 'cache'),
