@@ -17,6 +17,8 @@ PROCESS_TIMEOUT = 10
 YQ_VERSION = b'yq (https://github.com/mikefarah/yq/) version v4.49.2'
 RAW_NODES = ('{"data": ., "entries": (to_entries | map('
              '{"key": .key, "tag": (.key | tag), "kind": (.key | kind), "value": .value})), '
+             '"mappings": [... | select(kind == "map") | {"path": path, '
+             '"entries": (to_entries | map({"key": .key, "tag": (.key | tag), "kind": (.key | kind)}))}], '
              '"nodes": [... | {"path": path, "kind": kind, "tag": tag, "key": is_key}]}')
 
 
@@ -63,6 +65,27 @@ def _projection(document):
     nodes = _plain(envelope['nodes'], '/')
     if len(nodes) > 100000:
         raise ContractError('yaml_process_limit', '/')
+    # Inspect every protected mapping's raw entries, not just the descendant
+    # nodes: descent can hide an earlier merge/alias behind a quoted << key,
+    # while JSON encoding removes even an ordinary string << entry entirely.
+    entry_count = 0
+    for mapping in envelope['mappings']:
+        mapping = dict(mapping)
+        entries = mapping['entries']
+        entry_count += 1 + len(entries)
+        if entry_count > 100000:
+            raise ContractError('yaml_process_limit', '/')
+        path = mapping['path']
+        if not path or path[0] not in BLOCKS:
+            continue
+        seen = set()
+        for entry in entries:
+            entry = dict(entry)
+            if entry['kind'] != 'scalar' or entry['tag'] != '!!str' or entry['key'] == '<<':
+                raise ContractError('yaml_representation_unsupported', '/' + path[0])
+            if entry['key'] in seen:
+                raise ContractError('yaml_duplicate_authoring_key', '/' + path[0])
+            seen.add(entry['key'])
     # to_entries preserves individual root keys and their tags even when a
     # later duplicate key would hide a merge node from recursive descent.
     for entry in envelope['entries']:

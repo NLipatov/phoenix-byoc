@@ -152,6 +152,60 @@ class ConnectionYamlTest(unittest.TestCase):
                 self.layer(2, raw)
                 self.rejected('yaml_representation_unsupported')
 
+    def test_hidden_nested_merge_entries_rejected(self):
+        scope = 'enabled: true, allowedEnterpriseIds: ["00000000-0000-4000-8000-000000000001"]'
+        locations = (
+            ('block', '{enabled: false}', 'agentInputDelivery: {%s}'),
+            ('env', '{TRACE: ' + self.canary + '}', 'agentInputDelivery: {' + scope + ', env: {%s}}'),
+            ('reference', '{name: synthetic-provider-secret, key: api-key}',
+             'agentInputDelivery: {' + scope + ', secretEnv: {KEY: {%s}}}'),
+            ('headers', '{x-trace: ' + self.canary + '}',
+             'llm: {connections: {example: {HEADERS_JSON: {%s}}}}'),
+        )
+        for location, anchor, template in locations:
+            self.layer(0, self.named if location == 'headers' else {})
+            for merge_key in ('<<', '"<<"'):
+                for operand in ('*base', '[*base]'):
+                    for reverse in (False, True):
+                        with self.subTest(location=location, quoted=merge_key != '<<',
+                                          list_form=operand.startswith('['), reverse=reverse):
+                            entries = [merge_key + ': ' + operand, '"<<": {' + self.canary + ': true}']
+                            if reverse:
+                                entries.reverse()
+                            self.layer(2, 'base: &base ' + anchor + '\n' + template % ', '.join(entries))
+                            self.rejected('yaml_representation_unsupported')
+
+    def test_hidden_merge_shadow_variants_and_ancestor_duplicates(self):
+        for shadow in ('null', '[]', '"' + self.canary + '"'):
+            with self.subTest(shadow_type=shadow[:1]):
+                self.layer(2, 'base: &base {enabled: false}\n'
+                           'agentInputDelivery: {<<: *base, "<<": ' + shadow + '}')
+                self.rejected('yaml_representation_unsupported')
+        # Even quoted, unaliased << entries disappear during yq JSON encoding.
+        self.layer(2, 'agentInputDelivery: {enabled: false, "<<": {' + self.canary + ': true}}')
+        self.rejected('yaml_representation_unsupported')
+        for reverse in (False, True):
+            entries = ['env: {<<: *base, "<<": {' + self.canary + ': true}}', 'env: {}']
+            if reverse:
+                entries.reverse()
+            self.layer(2, 'base: &base {TRACE: safe}\nagentInputDelivery: {enabled: false, '
+                       + ', '.join(entries) + '}')
+            self.rejected('yaml_duplicate_authoring_key')
+
+    def test_unrelated_hidden_merge_with_valid_partial_overlay(self):
+        self.layer(0, self.named)
+        self.layer(3, {'llm': {'env': {'LAYER': 'secrets'}}})
+        for reverse in (False, True):
+            entries = ['<<: [*base]', '"<<": {' + self.canary + ': true}']
+            if reverse:
+                entries.reverse()
+            self.layer(2, 'base: &base {legacy: true}\nlegacy: {' + ', '.join(entries) + '}\n'
+                       'legacyAlias: *base\nllm: {env: {LAYER: values}}')
+            self.assertEqual(self.cli().returncode, 0)
+            merged = self.load()
+            self.assertEqual(merged['llm']['env']['LAYER'], 'secrets')
+            self.assertEqual(merged['llm']['connections'], self.named['llm']['connections'])
+
     def test_unrelated_legacy_representations_are_not_banned(self):
         for raw in (
             'legacy: {X: a, X: b}',
