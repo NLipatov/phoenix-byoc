@@ -337,6 +337,17 @@ class ConnectionValuesTest(unittest.TestCase):
         self.helm_schema(invalid_port, self.bundle)
         self.invalid(invalid_port, 'invalid_authoring')
 
+    def test_owner_permitted_backslash_url_path_preserves_value(self):
+        config = copy.deepcopy(next(v['input'] for v in self.vectors if v['id'] == 'valid/portkey-openai/openai-responses/api-key'))
+        url = r'https://gateway.example.invalid/v1\segment'
+        config['llm']['connections']['example']['BASE_URL'] = url
+        self.helm_schema(config, self.bundle)
+        try:
+            result = self.valid(config)
+        except ContractError as error:
+            self.fail('Owner-permitted URL rejected: ' + error.code)
+        self.assertEqual(result.plain_env['PHOENIX_LLM_EXAMPLE_BASE_URL'], url)
+
     def test_private_helm_ascii_escape_preserves_json_and_utf8_bounds(self):
         config = copy.deepcopy(next(v['input'] for v in self.vectors if v['id'] == 'generic_only'))
         value = 'é\u0080z'

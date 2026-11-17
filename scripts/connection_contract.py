@@ -437,7 +437,7 @@ def _has_control(value, ranges):
 
 
 def _valid_url(value, scheme, ranges):
-    if _has_control(value, ranges) or '\\' in value or '?' in value or '#' in value:
+    if _has_control(value, ranges) or '?' in value or '#' in value:
         return False
     try:
         url = urlsplit(value)
