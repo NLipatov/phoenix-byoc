@@ -67,6 +67,14 @@ fi
 
 release_channel=$(yq -r '.release.channel // ""' "$repo_root/release.yaml")
 release_version=$(yq -r '.release.version // ""' "$repo_root/release.yaml")
+# Release metadata is public, but must not inject terminal lines/control bytes.
+if ! release_source_environment=$(yq -er \
+    '.release.sourceEnvironment | select(tag == "!!str" or tag == "!!null") | (. // "unspecified")' \
+    "$repo_root/release.yaml" 2>/dev/null) || \
+    [[ ! "$release_source_environment" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]]; then
+  echo 'ERROR: release_source_environment_invalid' >&2
+  exit 1
+fi
 if [[ -z "$release_channel" || -z "$release_version" ]]; then
   echo "ERROR: release.yaml does not contain release.version and release.channel" >&2
   exit 1
@@ -454,6 +462,7 @@ else
 fi
 
 echo "Release:            $release_version ($release_channel)"
+echo "Source environment: $release_source_environment"
 echo "Kubernetes context: $context"
 echo "Namespace:          $namespace"
 echo "Values file:        $values_file"

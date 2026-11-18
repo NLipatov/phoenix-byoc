@@ -131,6 +131,32 @@ class ConnectionInstallTest(unittest.TestCase):
                       generated['gateway']['remoteSshEncryptionKey']):
             self.assertNotIn(value, result.stdout + result.stderr + json.dumps(f.events()))
 
+    def test_source_environment_is_safe_before_reads_or_mutations(self):
+        f = self.fixture
+        release_path = f.repo / 'release.yaml'
+        release = f.yaml_json(release_path)
+        for value in ('preview\n' + CANARY, '\x1b[31m' + CANARY, 'x' * 65, False, ['preview']):
+            with self.subTest(kind=type(value).__name__):
+                f.log.unlink(missing_ok=True)
+                release['release']['sourceEnvironment'] = value
+                release_path.write_text(json.dumps(release))
+                result = self.install()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('release_source_environment_invalid', result.stderr)
+                self.assertEqual(self.mutations(), [])
+                self.assertFalse(any(e['kind'] == 'read' for e in f.events()))
+                self.assertNotIn(CANARY, result.stdout + result.stderr)
+
+    def test_absent_source_environment_preserves_legacy_install(self):
+        f = self.fixture
+        release_path = f.repo / 'release.yaml'
+        release = f.yaml_json(release_path)
+        release['release'].pop('sourceEnvironment', None)
+        release_path.write_text(json.dumps(release))
+        result = self.install()
+        self.assertEqual(result.returncode, 0)
+        self.assertIn('Source environment: unspecified', result.stdout)
+
     def test_valid_install_gates_all_mutations_and_verify_is_final(self):
         f = self.fixture
         f.write_values({**f.values, 'imagePullSecrets': [{'name': 'fixture-pull'}]})
@@ -149,6 +175,6 @@ class ConnectionInstallTest(unittest.TestCase):
                 for event in events:
                     if event['kind'] != 'schema':
                         self.assertEqual(event['env'], {k: f.env[k] for k in event['env']})
-                for text in ('0.2.6 (stable)', 'fixture-context', 'Bundled PostgreSQL:',
+                for text in ('0.2.6 (stable)', 'Source environment: preview', 'fixture-context', 'Bundled PostgreSQL:',
                              'OpenSandbox ctrl:', 'ECR token refresh:', 'all.yaml'):
                     self.assertIn(text, result.stdout)

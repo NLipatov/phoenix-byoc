@@ -306,6 +306,7 @@ class InstallInputGuardTests(unittest.TestCase):
         self.assertEqual(self.mutations, ['MUTATE:cutover', 'MUTATE:secret', 'MUTATE:fuse',
                                          'MUTATE:sync', 'MUTATE:service-account'])
         self.assertEqual(self.names[-1], 'verify')
+        self.assert_full_install_order()
         self.assertLess(self.names.index('render-complete'), self.names.index(self.mutations[0]))
         modes = next(e['modes'] for e in self.events if e['event'] == 'private-modes')
         self.assertTrue(modes, 'guard snapshot must exist during render')
@@ -321,6 +322,38 @@ class InstallInputGuardTests(unittest.TestCase):
             self.assertEqual(env['PHOENIX_AGENTFS_CONTEXT'], 'fixture-context')
             if event['event'] != 'preflight':
                 self.assertEqual(env['PHOENIX_AGENTFS_RETAINED_IMAGES_JSON'], '["fixture-retained-image"]')
+
+    def assert_full_install_order(self):
+        required = ['render-complete', 'MUTATE:cutover', 'MUTATE:secret', 'MUTATE:fuse',
+                    'rollout', 'capacity', 'MUTATE:sync', 'MUTATE:service-account', 'verify']
+        self.assertEqual([name for name in self.names if name in required], required)
+
+    def test_readiness_order_assertion_detects_omissions_and_reordering(self):
+        # Mutate only this test's disposable installer copy, before input capture.
+        path = self.repo / 'scripts/install.sh'
+        original = path.read_text()
+        rollout = ('    kubectl --context "$context" -n "$plugin_namespace" rollout status \\\n'
+                   '      daemonset/fuse-device-plugin --timeout=600s')
+        capacity = '  "$repo_root/scripts/agentfs.sh" capacity'
+        self.assertEqual(original.count(rollout), 1)
+        self.assertEqual(original.count(capacity), 1)
+        mutants = [original.replace(rollout, '    :'), original.replace(capacity, '  :'),
+                   original.replace(capacity, '  :').replace(
+                       rollout, '    "$repo_root/scripts/agentfs.sh" capacity\n' + rollout)]
+        try:
+            for index, mutant in enumerate(mutants):
+                with self.subTest(mutation=index):
+                    path.write_text(mutant)
+                    self.events_path.unlink(missing_ok=True)
+                    result = self.run_install('--discard-redis-state')
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(self.mutations, ['MUTATE:cutover', 'MUTATE:secret',
+                                                     'MUTATE:fuse', 'MUTATE:sync',
+                                                     'MUTATE:service-account'])
+                    with self.assertRaises(AssertionError):
+                        self.assert_full_install_order()
+        finally:
+            path.write_text(original)
 
     def test_relative_local_chart_root_is_preserved(self):
         self.env['PHOENIX_BYOC_LOCAL_CHARTS'] = '../local-charts'
