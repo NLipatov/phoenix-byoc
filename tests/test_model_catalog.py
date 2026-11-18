@@ -9,16 +9,14 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 CHARTS = os.environ.get("PHOENIX_BYOC_LOCAL_CHARTS", str(ROOT.parent / "phoenix-devops" / "charts"))
-DEFAULT_MODELS = [
-    {"id": "anthropic/claude-opus-5", "profile": "reasoning"},
-    {"id": "anthropic/claude-opus-5-5", "profile": "reasoning_latest"},
-    {"id": "anthropic/claude-sonnet-5", "profile": "standard"},
-    {"id": "anthropic/claude-sonnet-5-5", "profile": "standard_latest"},
-    {"id": "anthropic/claude-sonnet-4-6", "profile": "orchestration"},
-    {"id": "anthropic/claude-haiku-5-5", "profile": "fast"},
-    {"id": "anthropic/claude-haiku-4-5", "profile": "fast_previous"},
-    {"id": "anthropic/claude-haiku-4-5-20251001", "profile": "fast_previous_pinned"},
-]
+REQUIRED_IN_CI = bool(os.environ.get("CI"))
+TOOLS = bool(shutil.which("yq") and shutil.which("helmfile"))
+
+
+def default_models():
+    """The shipped default list, read from defaults/values.yaml (not a copy)."""
+    return json.loads(subprocess.check_output(
+        ["yq", "-o=json", ".models", str(ROOT / "defaults/values.yaml")], text=True))
 
 
 def models(*entries):
@@ -35,8 +33,9 @@ class ModelCatalogCheckTests(unittest.TestCase):
         spec.loader.exec_module(mod)
         self.check = mod.check
 
-    def test_default_list_is_valid(self):
-        self.assertEqual(self.check(models(*DEFAULT_MODELS)), [])
+    def test_tools_present_in_ci(self):
+        if REQUIRED_IN_CI:
+            self.assertTrue(TOOLS, "CI must provide yq and helmfile; refusing to skip silently")
 
     @unittest.skipUnless(shutil.which("yq"), "requires Mike Farah yq")
     def test_defaults_file_is_valid(self):
@@ -80,7 +79,7 @@ class ModelCatalogCheckTests(unittest.TestCase):
         self.assertEqual((bad.returncode, bad.stderr), (1, "models: at least 1 model is required\n"))
 
 
-@unittest.skipUnless(shutil.which("yq") and shutil.which("helmfile"), "requires Mike Farah yq and helmfile")
+@unittest.skipUnless(TOOLS, "requires Mike Farah yq and helmfile")
 class ModelCatalogTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -105,7 +104,7 @@ class ModelCatalogTests(unittest.TestCase):
         return json.loads(rendered)
 
     def test_default_list_reaches_web(self):
-        self.assertEqual(self.render_web_models(""), DEFAULT_MODELS)
+        self.assertEqual(self.render_web_models(""), default_models())
 
     def test_customer_list_replaces_default(self):
         models = [{"id": "anthropic-vertex/claude-haiku-4-5@20251001", "profile": "fast"}]

@@ -122,6 +122,14 @@ vertex:
     sonnet: claude-sonnet-5
     haiku: claude-haiku-4-5@20251001
 
+# Models offered in the UI. A list here replaces the default list. With
+# `vertex.enabled: true`, use `anthropic-vertex/...` IDs; Claude 4.5 models need
+# the dated ID (for example claude-haiku-4-5@20251001).
+# models:
+#   - {id: anthropic-vertex/claude-opus-5, profile: reasoning}
+#   - {id: anthropic-vertex/claude-sonnet-5, profile: standard}
+#   - {id: anthropic-vertex/claude-haiku-4-5@20251001, profile: fast}
+
 application:
   agentBundles:
     namespace: agent-bundles
