@@ -69,6 +69,13 @@ class ModelCatalogCheckTests(unittest.TestCase):
         self.assertEqual(self.check(models({"id": "Anthropic/x", "profile": "fast"})),
                          ["models[0]: invalid id Anthropic/x"])
 
+    def test_id_is_capped_to_printable_ascii(self):
+        self.assertEqual(self.check(models({"id": "anthropic/" + "a" * 255, "profile": "fast"})), [])
+        self.assertEqual(self.check(models({"id": "r" * 64 + "/x", "profile": "fast"})), [])
+        for bad in ("anthropic/" + "a" * 256, "r" * 65 + "/x", "anthropic/x\u200by", "anthropic/claude-\u00e9"):
+            with self.subTest(bad=bad):
+                self.assertEqual(len(self.check(models({"id": bad, "profile": "fast"}))), 1)
+
     def test_trailing_newline_is_invalid(self):
         self.assertEqual(self.check(models({"id": "anthropic/x\n", "profile": "fast"})),
                          ['models[0]: invalid id "anthropic/x\\n"'])

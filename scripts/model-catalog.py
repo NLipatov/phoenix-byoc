@@ -14,7 +14,7 @@ import json
 import re
 import sys
 
-ID = re.compile(r"[a-z0-9][a-z0-9_-]*/\S+")
+ID = re.compile(r"[a-z0-9][a-z0-9_-]{0,63}/[\x21-\x7e]{1,255}")
 PROFILE = re.compile(r"[a-z][a-z0-9_]{0,63}")
 KEYS = ("id", "profile")
 PATTERNS = {"id": ID, "profile": PROFILE}

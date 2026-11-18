@@ -295,8 +295,9 @@ models:
 
 - `id` is `<provider>/<model>` (for example `anthropic/...` or
   `anthropic-vertex/...`) and must be unique. The provider is lowercase
-  (letters, digits, `_` and `-`, starting with a letter or digit), and the
-  model has no spaces;
+  (letters, digits, `_` and `-`, starting with a letter or digit, at most 64
+  characters), and the model is 1 to 255 printable ASCII characters with no
+  spaces;
 - `profile` is a lowercase name of up to 64 characters (letters, digits and
   `_`, starting with a letter) and must be unique;
 - the list has at least one model.
