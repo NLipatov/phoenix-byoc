@@ -110,6 +110,7 @@ yq -o=json '.' "$merged_file" | python3 "$repo_root/scripts/eval-config.py" chec
 yq -o=json '.' "$merged_file" | python3 "$repo_root/scripts/model-catalog.py" check
 
 for boolean_path in \
+  vertex.enabled \
   services.workflowEngine.operator.evalResultDetailEnabled \
   services.workflowEngine.operator.metrics.enabled \
   services.workflowEngine.githubPullRequests.creationEnabled \

@@ -775,6 +775,22 @@ grep -q 'requires services.workflowEngine.githubPullRequests.creationEnabled=tru
     exit 1
   }
 
+# A quoted vertex.enabled selects the model catalog default and the Vertex
+# wiring, so preflight must name it instead of letting helmfile fail later.
+yq -i '.vertex.enabled = "true"' "$example_tmp/values.yaml"
+if PHOENIX_BYOC_NAMESPACE=phoenix-example \
+   PHOENIX_BYOC_VALUES_FILE="$example_tmp/values.yaml" \
+   PHOENIX_BYOC_SECRETS_FILE="$example_tmp/secrets.yaml" \
+   "$repo_root/scripts/preflight.sh" >"$example_tmp/vertex-invalid.log" 2>&1; then
+  echo "ERROR: preflight accepted a quoted vertex.enabled" >&2
+  exit 1
+fi
+grep -q 'vertex.enabled must be a boolean' "$example_tmp/vertex-invalid.log" || {
+  echo "ERROR: preflight did not name the quoted vertex.enabled" >&2
+  exit 1
+}
+yq -i '.vertex.enabled = false' "$example_tmp/values.yaml"
+
 # Restore the documented default before using this example for the shared
 # OpenSandbox-controller render below.
 yq -i '.services.workflowEngine.githubPullRequests.allowPublicRepositories = false' \
