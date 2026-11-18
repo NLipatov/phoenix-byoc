@@ -153,11 +153,11 @@
     }
   ],
   "unreleasedEngine": {
-    "archive": "unreleased-engine-8fa3ecba.tgz",
-    "sha256": "d0f49a00daaca6ed875ecf1d7c5cec870043d97635b833c1248988b552f8b0af",
-    "sourceCommit": "8fa3ecba678acd8599fd90aa2f0e9e4d7e0ca38d",
+    "archive": "unreleased-engine-22a0a3f0.tgz",
+    "sha256": "16f17dd04060d66cbf0ca9684be89c7a43521a1ae6758314f5b1a3ea4442fa21",
+    "sourceCommit": "22a0a3f0a954f34165383dff26b94f0c3c3883cf",
     "chartVersion": "0.2.9",
-    "lockSha256": "d5c5406aff1a9b9d8a4166373da86e618eadcda72b287a14d3de0aa8df38291b",
+    "lockSha256": "668e9af8ce04afdc7807248b43a4ca58eebed603d9d0fa7e09cec9ff9f144c98",
     "status": "unreleased Git-source candidate; fixture only, not a published release"
   },
   "legacyTemplate": {

@@ -70,6 +70,15 @@ if [[ "$secrets_file" != /* ]]; then
   secrets_file="$repo_root/$secrets_file"
 fi
 
+# Helmfile expands path patterns and templates; bind the same literal YAML
+# files the raw gate reads, before generation creates or normalizes anything.
+for selected_path in "$values_file" "$secrets_file"; do
+  case "$selected_path" in
+    *.gotmpl) echo 'ERROR: yaml_template_unsupported: /' >&2; exit 1 ;;
+    *'*'*|*'?'*|*'['*|*'\'*) echo 'ERROR: yaml_path_pattern_unsupported: /' >&2; exit 1 ;;
+  esac
+done
+
 generate_internal_secrets() (
   local namespace=$1
   local selected_values=$2
@@ -120,9 +129,9 @@ generate_internal_secrets() (
   # A missing secrets file still follows normal local creation/generation;
   # preflight validates the completed inputs again after generation.
   if [[ -f "$selected_secrets" ]]; then
-    if ! python3 "$repo_root/scripts/connection-config.py" gate-yaml \
-        "$repo_root/release.yaml" "$repo_root/defaults/values.yaml" \
-        "$selected_values" "$selected_secrets" >/dev/null 2>&1; then
+    if ! source "$repo_root/scripts/connection-gate.sh" 2>/dev/null ||
+        ! connection_gate "$repo_root" "$repo_root/release.yaml" "$repo_root/defaults/values.yaml" \
+          "$selected_values" "$selected_secrets"; then
       echo 'ERROR: connection_gate_failed' >&2
       return 1
     fi

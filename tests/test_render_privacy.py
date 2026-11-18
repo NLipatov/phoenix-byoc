@@ -22,7 +22,7 @@ class RenderPrivacyTest(unittest.TestCase):
         self.repo = self.base / 'source'
         (self.repo / 'scripts').mkdir(parents=True)
         shutil.copy2(ROOT / 'scripts/render.sh', self.repo / 'scripts/render.sh')
-        for name in ('connection-config.py', 'connection_yaml.py', 'connection_contract.py'):
+        for name in ('connection-config.py', 'connection_yaml.py', 'connection_contract.py', 'connection-gate.sh'):
             shutil.copy2(ROOT / 'scripts' / name, self.repo / 'scripts' / name)
         for name in ('contracts', 'defaults'):
             shutil.copytree(ROOT / name, self.repo / name)

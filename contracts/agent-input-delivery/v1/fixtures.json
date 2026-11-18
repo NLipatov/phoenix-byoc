@@ -4,6 +4,11 @@
     {
       "expected": {
         "capability": "blocked",
+        "deliveredEnv": {
+          "DEPLOYMENT_LABEL": "synthetic",
+          "PHOENIX_AGENT_SECRET_NAMES_JSON": "[\"TEST_KEY\"]",
+          "TEST_KEY": "synthetic-not-a-credential"
+        },
         "env": {
           "DEPLOYMENT_LABEL": "synthetic"
         },

@@ -18,6 +18,11 @@ contain **all 27 rows blocked**, with no live acceptance. Source implementation
 and offline tests do not promote them. The unconditional Workflow Engine chart
 floor remains **0.2.8**, including when delivery is off; an unpublished **0.2.9**
 fixture is not release acceptance. Do not change `release.yaml` to enable this.
+A future rollout needs the chart templates, a compatible Engine reader/lifecycle
+image and compatible Agents—not merely a version-shaped value. The operator uses
+`Recreate` and projected Secrets use `optional: false`: a missing Secret or key can
+stop **all workflow execution** while the replacement pod waits. Provision and
+authorize the required Secrets before any separately approved rollout.
 
 ## Authoring checks, not installation approval
 
@@ -37,6 +42,14 @@ by a later layer. Partial nonempty maps overlay in release → defaults → valu
 → secrets order; final references, types and collisions must still validate.
 Unsupported aliases, merge keys and tags affecting these blocks reject rather
 than silently losing authoring data. This does not ban unrelated legacy YAML.
+The raw adapter ignores genuinely empty/null documents (including a trailing
+separator), but not an explicit null protected block. Selected `.gotmpl` values
+or secrets paths are rejected before generation or rendering: raw YAML cannot
+validate configuration that Helmfile will subsequently template. Glob/escape
+syntax (`*`, `?`, `[`, or backslash) in selected paths also rejects: Helmfile can
+expand a readable literal filename to a different file. Use literal plain-YAML
+paths. Selected symlinks may point to bounded regular files; the installer still binds
+the selected path, resolved target and exact bytes and aborts on retargeting.
 
 Omit `llm` completely when unused; `llm: {}` is not an off switch.
 `CONFIG_VERSION` is the string `"1"`, `enabled` is a boolean, env values are
@@ -55,6 +68,15 @@ unique across derived/plain/secret/platform sources, even when values are equal.
 URLs require HTTPS without userinfo, query or fragment; protected authentication
 headers and command/interpolation forms reject. Native-specific fixed endpoints
 cannot be replaced with arbitrary URLs.
+
+Plain native and header references resolve from the immutable declared union of
+`agentInputDelivery.env` and `llm.env`; header secrets may also come from either
+secret map. Platform references still require `llm.platformEnv`. Header-only and
+unused platform declarations are valid authoring. Generated transport keys never
+become sources, and API keys remain `llm.secretEnv`-only. Collisions are rejected
+before combining sources. Outer and nested JSON byte limits use the same compact,
+key-sorted UTF-8 Go/Helm encoding, including HTML and U+2028/U+2029 escapes; literal
+backslash-u text and delivered secret bytes are preserved.
 
 ## Non-installable authoring examples
 
@@ -207,7 +229,21 @@ revalidate automatically. It uses **private snapshots** and comparisons, binds
 selected values/secrets, release/defaults/contracts, relevant local
 charts/templates and configured
 roots/environment, and cleans private state on exit/signals. No public guard
-protocol or bypass command is needed.
+protocol or bypass command is needed. A byte-identical cache rewrite is not an
+input change; changed or new sealed chart inputs still abort even after sync,
+preventing later unchecked mutations. `install_inputs_limit_exceeded` means the
+selected inputs or installer-owned cache must be reduced before rerunning;
+repeating the same oversized input does not repair the failure.
+
+Gate diagnostics expose only allowlisted error codes and fixed authoring paths
+(for example `yaml_tool_version: /` or `yaml_duplicate_authoring_key:
+/agentInputDelivery`). Unknown interpreter/import/tool output remains suppressed
+behind `connection_gate_failed`; renderer logs are not made public. The exact
+yq 4.49.2 prerequisite applies to the local gate even when delivery is absent.
+Normal exit and catchable signals clean private snapshots; SIGKILL or machine
+failure can leave private plaintext residue in the installer's temporary
+storage. Protect that storage and remove abandoned installer-owned temporary
+directories through the operator's local recovery procedure.
 
 External cache roots are bound, but arbitrary external cache contents and
 **remote artifacts are not attested**. Normal render cache population is not

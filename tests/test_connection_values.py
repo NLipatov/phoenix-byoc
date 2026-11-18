@@ -77,9 +77,9 @@ class ConnectionValuesTest(unittest.TestCase):
 
     def test_additional_owner_authoring_vectors(self):
         vectors = json.loads(self.bundle.authoring_vectors.read_text())
-        self.assertEqual(len(vectors), 18)
+        self.assertEqual(len(vectors), 23)
         self.assertEqual({v['kind'] for v in vectors}, {'values'})
-        self.assertEqual(sum(v['expected']['semantic'] for v in vectors), 4)
+        self.assertEqual(sum(v['expected']['semantic'] for v in vectors), 8)
         for vector in vectors:
             with self.subTest(vector=vector['id']):
                 expected = vector['expected']
@@ -156,6 +156,29 @@ class ConnectionValuesTest(unittest.TestCase):
         config = self.base()
         config['llm']['CONFIG_VERSION'] = 1
         self.invalid(config, 'connection_schema_invalid')
+
+    def test_generated_outputs_are_never_reference_sources(self):
+        gateway = next(v['input'] for v in self.vectors if v['id'] == 'valid/portkey-openai/openai-responses/api-key')
+        for destination in ('PHOENIX_LLM_CONFIG_VERSION', 'PHOENIX_LLM_EXAMPLE_PLATFORM'):
+            config = copy.deepcopy(gateway)
+            config['llm']['connections']['z_later'] = copy.deepcopy(config['llm']['connections']['example'])
+            config['llm']['connections']['z_later']['HEADERS_JSON'] = {'X-Trace': '$' + destination}
+            self.invalid(config, 'source_required')
+        workload = copy.deepcopy(next(v['input'] for v in self.vectors if v['id'] == 'valid/bedrock-anthropic/bedrock-converse-stream/aws-workload'))
+        workload['llm']['connections']['example']['NATIVE_ENV_REFS_JSON']['AWS_REGION'] = 'PHOENIX_LLM_CONFIG_VERSION'
+        # Native destinations already reject this at the schema boundary.
+        self.invalid(workload, 'connection_schema_invalid')
+
+    def test_transport_json_matches_helm_outer_and_nested_bytes(self):
+        from connection_contract import _transport_json
+        self.assertEqual(_transport_json({'X': '&<>\u2028\u2029'}), b'{"X":"\\u0026\\u003c\\u003e\\u2028\\u2029"}')
+        self.assertEqual(_transport_json({'X': '\\u2028'}), b'{"X":"\\\\u2028"}')
+        config = copy.deepcopy(next(v['input'] for v in self.vectors if v['id'] == 'valid/portkey-openai/openai-responses/api-key'))
+        config['llm']['connections']['example']['HEADERS_JSON'] = {'X-Trace': '&<>'}
+        result = self.valid(config)
+        self.assertEqual(result.plain_env['PHOENIX_LLM_EXAMPLE_HEADERS_JSON'], '{"X-Trace":"\\u0026\\u003c\\u003e"}')
+        generic = {'agentInputDelivery': {'enabled': True, 'allowedEnterpriseIds': ['12345678-1234-1234-1234-123456789abc'], 'env': {'X': '&' * 12000}}}
+        self.invalid(generic, 'env_size_limit')
 
     def test_typed_json_objects_not_double_encoded(self):
         config = self.base()

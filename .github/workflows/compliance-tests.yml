@@ -6,6 +6,49 @@ on:
 permissions:
   contents: read
 jobs:
+  connections:
+    name: Connection admission and private offline rendering
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.13.5'
+      - name: Install pinned test tools (CI only)
+        run: |
+          set -euo pipefail
+          python3 -m pip install PyYAML==6.0.3
+          tool_dir=$(mktemp -d "$RUNNER_TEMP/connection-tools.XXXXXX")
+          archive=helm-v3.18.6-linux-amd64.tar.gz
+          curl -fsSL --retry 3 "https://get.helm.sh/$archive" -o "$tool_dir/$archive"
+          curl -fsSL --retry 3 "https://get.helm.sh/$archive.sha256sum" -o "$tool_dir/checksum"
+          (cd "$tool_dir" && sha256sum --check checksum)
+          tar -xzf "$tool_dir/$archive" -C "$tool_dir" linux-amd64/helm
+          mv "$tool_dir/linux-amd64/helm" "$tool_dir/helm"
+          curl -fsSL --retry 3 https://github.com/helmfile/helmfile/releases/download/v0.171.0/helmfile_0.171.0_linux_amd64.tar.gz -o "$tool_dir/helmfile.tar.gz"
+          tar -xzf "$tool_dir/helmfile.tar.gz" -C "$tool_dir" helmfile
+          curl -fsSL --retry 3 https://github.com/mikefarah/yq/releases/download/v4.49.2/yq_linux_amd64 -o "$tool_dir/yq"
+          chmod +x "$tool_dir/yq"
+          "$tool_dir/helm" version --short
+          "$tool_dir/helmfile" --version
+          "$tool_dir/yq" --version
+          echo "$tool_dir" >> "$GITHUB_PATH"
+          echo "PHOENIX_TEST_HELM=$tool_dir/helm" >> "$GITHUB_ENV"
+          echo "PHOENIX_TEST_HELMFILE=$tool_dir/helmfile" >> "$GITHUB_ENV"
+      - name: Run explicit offline gate and render suites
+        # Synthetic manifests/Secrets only. No Kubernetes, cloud auth or install operations.
+        run: |
+          python3 -I -B - <<'PY'
+          import sys, unittest
+          sys.path.insert(0, 'tests')
+          modules = ['test_connection_ci', 'test_connection_contract', 'test_connection_docs',
+                     'test_connection_gates', 'test_connection_install', 'test_connection_release',
+                     'test_connection_render', 'test_connection_secrets', 'test_connection_values',
+                     'test_connection_yaml', 'test_install_input_guard', 'test_render_privacy']
+          result = unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromNames(modules))
+          sys.exit(not result.wasSuccessful())
+          PY
+
   test:
     runs-on: ubuntu-latest
     steps:

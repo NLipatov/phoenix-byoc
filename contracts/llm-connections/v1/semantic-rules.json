@@ -12,6 +12,24 @@
   },
   "references": {
     "apiKeySource": "secrets",
+    "apiKeySourceMaps": [
+      "llm.secretEnv"
+    ],
+    "declaredSourceMaps": {
+      "plain": [
+        "agentInputDelivery.env",
+        "llm.env"
+      ],
+      "secrets": [
+        "agentInputDelivery.secretEnv",
+        "llm.secretEnv"
+      ],
+      "platform": [
+        "llm.platformEnv"
+      ]
+    },
+    "generatedOutputsAreSources": false,
+    "unusedPlatformDeclarations": "permitted",
     "nativePlatformKeys": [
       "AWS_ROLE_ARN",
       "AWS_WEB_IDENTITY_TOKEN_FILE",
@@ -29,6 +47,13 @@
     ],
     "exactSourceCount": 1,
     "equalValueCollisions": "reject across sources"
+  },
+  "transportJson": {
+    "encoding": "UTF-8",
+    "compact": true,
+    "sortedKeys": true,
+    "escapeHtml": true,
+    "escapeLineSeparators": true
   },
   "forbidden": {
     "connectionNames": [

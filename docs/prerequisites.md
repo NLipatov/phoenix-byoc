@@ -3,11 +3,11 @@
 ## Tools
 
 - Kubernetes 1.28 or newer
-- Helm 3.18
-- Helmfile 0.171
+- Helm 3.18.6
+- Helmfile 0.171.0
 - kubectl compatible with the cluster
 - kubeconform for local schema validation
-- yq 4.49
+- yq 4.49.2 (exact tested raw-YAML representation; other versions reject)
 - Python 3.9 or newer for AgentFS installation and verification, and the optional
   legacy Redis migration (standard library only; no Python packages to install)
 

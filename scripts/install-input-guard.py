@@ -33,9 +33,13 @@ class InputChanged(Exception):
     pass
 
 
-def require(condition):
+class InputLimitExceeded(InputChanged):
+    pass
+
+
+def require(condition, error=InputChanged):
     if not condition:
-        raise InputChanged()
+        raise error()
 
 
 def environment(repo):
@@ -57,7 +61,7 @@ def collect(roots, confinement=None):
         key = str(path)
         if key in entries:
             return
-        require(depth <= 32 and len(entries) < MAX_ENTRIES)
+        require(depth <= 32 and len(entries) < MAX_ENTRIES, InputLimitExceeded)
         resolved = str(path.resolve())
         if confinement is not None:
             require(Path(resolved).is_relative_to(confinement))
@@ -71,11 +75,12 @@ def collect(roots, confinement=None):
             for child in path.iterdir():
                 visit(child, depth + 1)
         else:
-            require(stat.S_ISREG(mode) and path.stat().st_size <= MAX_FILE)
+            require(stat.S_ISREG(mode))
+            require(path.stat().st_size <= MAX_FILE, InputLimitExceeded)
             with path.open('rb') as stream:
                 data = stream.read(MAX_FILE + 1)
             total += len(data)
-            require(len(data) <= MAX_FILE and total <= MAX_TOTAL)
+            require(len(data) <= MAX_FILE and total <= MAX_TOTAL, InputLimitExceeded)
             entries[key] = (resolved, data)
     for root in roots:
         visit(root)
@@ -116,7 +121,8 @@ def cache_inputs(repo):
         children = []
         for child in directory.iterdir():
             visited += 1
-            require(visited <= MAX_ENTRIES and not child.is_symlink())
+            require(visited <= MAX_ENTRIES, InputLimitExceeded)
+            require(not child.is_symlink())
             children.append(child)
         if any(child.name == 'Chart.yaml' and child.is_file() for child in children):
             roots.append(directory)
@@ -181,6 +187,10 @@ def main():
 if __name__ == '__main__':
     try:
         main()
+    except InputLimitExceeded:
+        print('ERROR: install_inputs_limit_exceeded; reduce selected inputs or installer-owned cache before rerunning.',
+              file=sys.stderr)
+        sys.exit(1)
     except (OSError, ValueError, KeyError, RuntimeError, InputChanged):
         # No paths, parser diagnostics, secret bytes or secret-derived hashes.
         print('ERROR: install_inputs_changed_or_unavailable; rerun validation and render.', file=sys.stderr)

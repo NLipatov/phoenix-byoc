@@ -56,9 +56,9 @@ secrets_file=${PHOENIX_BYOC_SECRETS_FILE:-}
 [[ -n "$values_file" && -n "$secrets_file" ]] || fail render_connection_gate_failed
 [[ "$values_file" == /* ]] || values_file="$repo_root/$values_file"
 [[ "$secrets_file" == /* ]] || secrets_file="$repo_root/$secrets_file"
-if ! python3 "$repo_root/scripts/connection-config.py" gate-yaml \
-    "$repo_root/release.yaml" "$repo_root/defaults/values.yaml" \
-    "$values_file" "$secrets_file" >/dev/null 2>&1; then
+if ! source "$repo_root/scripts/connection-gate.sh" 2>/dev/null ||
+    ! connection_gate "$repo_root" "$repo_root/release.yaml" "$repo_root/defaults/values.yaml" \
+      "$values_file" "$secrets_file"; then
   fail render_connection_gate_failed
 fi
 

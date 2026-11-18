@@ -20,6 +20,7 @@
     "values": "UTF-8 JSON strings without NUL; empty plain values permitted"
   },
   "secrets": {
+    "delivery": "prefix is projected filename only; inject exact unprefixed destination env name",
     "filePattern": "^PHOENIX_AGENT_SECRET_[A-Z][A-Z0-9_]*$",
     "maxFiles": 128,
     "prefix": "PHOENIX_AGENT_SECRET_",
@@ -101,14 +102,16 @@
     "value": "sorted JSON array of new secret destination names only; absent without new secrets"
   },
   "behavior": {
+    "admissionAuthority": "Engine validates generic delivery and trusted enterprise only; Agents owns named connection/native runtime capability admission",
     "collisions": "reject new plain/secret overlap and overlap with either existing runtime map, even equal or empty values",
     "generation": "one pinned projected generation per load; fresh snapshot per delivery",
     "legacy": "unrelated existing explicit credentials remain unchanged",
     "maxFileBytes": 65536,
     "maxTotalBytes": 1048576,
-    "privacy": "errors contain safe codes/names only; runtime scrub and tool-boundary integration not yet wired",
+    "privacy": "errors contain safe codes/names only; delivered nonempty secrets participate in runtime scrub and Agents tool-boundary protection; canonical secret-bearing output is refused",
+    "retry": "safe cancellation, deadline and positive projected-generation change abort the snapshot for retry; unknown unreadable errors remain terminal",
     "selectedFiles": "delivery-policy.json, env.json, exact prefixed secret names",
-    "supportedTarget": "planned opensandbox/linux/agent only; runtime wiring not implemented",
+    "supportedTarget": "opensandbox/linux/agent runtime wiring implemented; activation requires compatible Agents runtime and separately verified deployment",
     "unsupportedTargets": [
       "external-host",
       "windows",

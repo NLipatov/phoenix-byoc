@@ -20,6 +20,56 @@ class ConnectionInstallTest(unittest.TestCase):
     def mutations(self):
         return [e for e in self.fixture.events() if e['kind'] == 'mutation']
 
+    def test_template_paths_rejected_before_generation_or_resource_access(self):
+        f = self.fixture
+        for field in ('values_path', 'secrets_path'):
+            for generate in (False, True):
+                with self.subTest(field=field, generate=generate):
+                    f.log.unlink(missing_ok=True)
+                    original = getattr(f, field)
+                    selected = original.with_suffix('.yaml.gotmpl')
+                    selected.write_bytes(original.read_bytes() + b'\n# {{ "llm: {}" }}\n')
+                    before = selected.read_bytes()
+                    setattr(f, field, selected)
+                    result = self.install(*(['--generate-secrets'] if generate else []))
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn('yaml_template_unsupported: /', result.stderr)
+                    self.assertEqual(selected.read_bytes(), before)
+                    self.assertEqual(self.mutations(), [])
+                    self.assertFalse(any(e['kind'] in ('read', 'render-start') for e in f.events()))
+                setattr(f, field, original)
+
+    def test_absent_template_secrets_not_created_by_generation(self):
+        f = self.fixture
+        f.secrets_path = f.secrets_path.with_suffix('.yaml.gotmpl')
+        result = self.install('--generate-secrets')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(f.secrets_path.exists())
+        self.assertIn('yaml_template_unsupported: /', result.stderr)
+        self.assertEqual(self.mutations(), [])
+        self.assertFalse(any(e['kind'] in ('read', 'render-start') for e in f.events()))
+
+    def test_glob_paths_rejected_before_generation(self):
+        f = self.fixture
+        for field in ('values_path', 'secrets_path'):
+            for exists in (False, True):
+                with self.subTest(field=field, exists=exists):
+                    original = getattr(f, field)
+                    selected = original.with_suffix('.[g]otmpl')
+                    if exists:
+                        selected.write_bytes(original.read_bytes())
+                    setattr(f, field, selected)
+                    result = self.install('--generate-secrets')
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn('yaml_path_pattern_unsupported: /', result.stderr)
+                    self.assertEqual(selected.exists(), exists)
+                    if exists:
+                        self.assertEqual(selected.read_bytes(), original.read_bytes())
+                    self.assertEqual(self.mutations(), [])
+                    self.assertFalse(any(e['kind'] in ('read', 'render-start') for e in f.events()))
+                setattr(f, field, original)
+                selected.unlink(missing_ok=True)
+
     def test_invalid_typed_connection_has_zero_mutations(self):
         f = self.fixture
         cases = [f.vector('subscription_auth_rejected'), f.vector('generic_only'),
@@ -88,6 +138,7 @@ class ConnectionInstallTest(unittest.TestCase):
                 observed = (result.returncode, sum(e['kind'] == 'read' for e in f.events()),
                             [e['detail'] for e in self.mutations()])
                 self.assertEqual(observed, (1, 0, []))
+                self.assertIn('yaml_duplicate_authoring_key: /agentInputDelivery', result.stderr)
                 self.assertTrue(f.secrets_path.read_bytes() == original,
                                 'raw selected secrets were overwritten before validation')
                 self.assertFalse(any(e['kind'] == 'render-start' for e in f.events()))

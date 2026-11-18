@@ -217,6 +217,31 @@ class ConnectionYamlTest(unittest.TestCase):
             self.layer(2, raw)
             self.assertEqual(self.cli().returncode, 0)
 
+    def test_template_selected_paths_rejected_before_tools(self):
+        for index in (2, 3):
+            with self.subTest(layer=index):
+                original = self.paths[index]
+                selected = original.with_suffix('.yaml.gotmpl')
+                selected.write_text('{}\n# {{ "agentInputDelivery: {enabled: true}" }}\n')
+                self.paths[index] = selected
+                result = self.cli(dict(os.environ, PATH=str(self.folder)))
+                self.assertEqual(result.returncode, 1)
+                self.assertEqual(result.stderr, b'yaml_template_unsupported: /\n')
+            self.paths[index] = original
+
+    def test_glob_selected_paths_rejected_before_tools(self):
+        for index in (2, 3):
+            for suffix in ('.[g]otmpl', '.y?ml', '.y*ml', '.ya\\ml'):
+                with self.subTest(layer=index, suffix=suffix):
+                    original = self.paths[index]
+                    selected = original.with_name(original.name + suffix)
+                    selected.write_text('{}\n')
+                    self.paths[index] = selected
+                    result = self.cli(dict(os.environ, PATH=str(self.folder)))
+                    self.assertEqual(result.returncode, 1)
+                    self.assertEqual(result.stderr, b'yaml_path_pattern_unsupported: /\n')
+                self.paths[index] = original
+
     def test_missing_and_wrong_yq_fail_closed(self):
         env = dict(os.environ, PATH=str(self.folder))
         missing = self.cli(env)
@@ -229,6 +254,39 @@ class ConnectionYamlTest(unittest.TestCase):
                 self.load()
         self.assertEqual(caught.exception.code, 'yaml_tool_version')
 
+    def test_null_documents_do_not_change_legacy_or_disabled_projection(self):
+        for config in ({'legacy': True}, {'agentInputDelivery': {'enabled': False}}):
+            for suffix in ('\n---\n', '\n---\n# empty\n', '\n---\nnull\n---\n~\n'):
+                with self.subTest(config=config, suffix=suffix):
+                    self.layer(2, json.dumps(config) + suffix)
+                    self.assertEqual(self.cli().returncode, 0)
+                    self.assertEqual(self.load(), {k: v for k, v in config.items()
+                                                   if k in connection_yaml.BLOCKS})
+                    self.assertEqual(self.paths[2].read_text(), json.dumps(config) + suffix)
+        for raw, code in (('[]', 'yaml_representation_unsupported'),
+                          ('42', 'yaml_parse_invalid'), ('!custom null', 'yaml_parse_invalid')):
+            self.layer(2, raw)
+            self.rejected(code)
+
+    def test_selected_symlink_reads_bounded_target(self):
+        selected = self.paths[2]
+        target = self.folder / 'target.yaml'
+        selected.unlink()
+        selected.symlink_to(target.name)
+        target.write_text(json.dumps(self.generic))
+        self.assertEqual(self.cli().returncode, 0)
+        self.assertEqual(self.load(), self.generic)
+        self.assertTrue(selected.is_symlink())
+        target.write_bytes(b'x' * (connection_yaml.MAX_FILE_BYTES + 1))
+        self.rejected('input_size_limit')
+        target.unlink()
+        self.rejected('yaml_input_invalid')
+        os.mkfifo(target)
+        self.rejected('yaml_input_invalid')
+        target.unlink()
+        target.symlink_to(selected.name)
+        self.rejected('yaml_input_invalid')
+
     def test_bounded_regular_file_reads(self):
         self.paths[2].write_bytes(b'x' * (connection_yaml.MAX_FILE_BYTES + 1))
         self.rejected('input_size_limit')
@@ -238,7 +296,7 @@ class ConnectionYamlTest(unittest.TestCase):
         self.rejected('yaml_input_invalid')
         self.paths[2].unlink()
         self.paths[2].symlink_to(self.paths[0])
-        self.rejected('yaml_input_invalid')
+        self.assertEqual(self.cli().returncode, 0)
 
     def test_child_output_and_time_budgets(self):
         self.layer(2, self.generic)

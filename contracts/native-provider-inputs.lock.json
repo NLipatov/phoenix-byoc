@@ -3,32 +3,32 @@
   "owners": {
     "agents": {
       "path": "contracts/llm-connections/v1",
-      "supplierCommit": "00e558d3b8a09d93ac0a6fd2e2c6a89a1cd79814",
-      "archiveSha256": "a29032896e56b3ab19ecb30b08333e6d640a4073065557326271f13e794f1e53",
-      "manifestSha256": "889489443a2a9d6ce5f7644975b079035b7177cc43a6c8c208a2070522f55e4d",
+      "supplierCommit": "0f6e71986b54148e5782ce652badcfa7098bc3f4",
+      "archiveSha256": "01932236c37ec6507287cd682c11701f027651e8f583fc412da6e56020ee5290",
+      "manifestSha256": "c3e9590321bf1e99983c74ea168c3e3ee2e17601227b0107b206fc0b79980089",
       "manifest": {
         "formatVersion": 1,
         "contractVersion": "1",
         "deliveryVersion": "1",
         "piVersion": "1.4.0",
-        "sourceRevision": "706d0348edf69a94cc9a76d2d76f7eb3c0567fac0daaec96cb56ebdd044f504a",
+        "sourceRevision": "3ed6c2d8b48bdaaf4a7178a106816e2c58fcd8c928ac296b8084252246127e6a",
         "files": {
-          "README.md": "7d077ab0358b48b41fd655a487c9fc8bb9cae251706b20d3a6623e1ba88f2564",
-          "authoring-vectors.json": "8f7c0aba07b7d64d8a073d3d47c25a9af4a875b68f810b541c718d5f157f56b7",
+          "README.md": "fcefaacb28fbc2967707236d0b8eacde0df8d5230906162ab651b5b931a75f9f",
+          "authoring-vectors.json": "82ff7924c8968d7d2fb1ff5711d61425135a7c1a7e375ebc5553488327ea88ad",
           "capabilities.json": "99064e65da8fd238eb0e9146b25953804ab70617034573786943fbf0e1e559de",
           "capability-vectors.json": "7b2608bca89a0c8c3b15c03372fa6e79158158a45d61c1a017a335e6012a2925",
-          "semantic-rules.json": "9f73711ec787c1e5b095fb021ff4f409d54141bfc9e6ac54f4fd7d5c5392f61e",
+          "semantic-rules.json": "38980f0e8ba36b383eb5c77eeee51556d12dbb94dcfcf7cf75d70b2ca315e02c",
           "semantic-vectors.json": "500e27581fb87321bb87dd8b599a4150ba27eaab4a9f385dec4ae52fba1b6092",
           "transport-vectors.json": "cf466d903722987ff51574795c32defa9ec5c5327c511aa0821568a4058b4149",
           "values.schema.json": "0556b9bc85894f2984a4428afe61000b2707c183ef0a1e3ab55d77191ef16b93"
         }
       },
       "files": {
-        "README.md": "7d077ab0358b48b41fd655a487c9fc8bb9cae251706b20d3a6623e1ba88f2564",
-        "authoring-vectors.json": "8f7c0aba07b7d64d8a073d3d47c25a9af4a875b68f810b541c718d5f157f56b7",
+        "README.md": "fcefaacb28fbc2967707236d0b8eacde0df8d5230906162ab651b5b931a75f9f",
+        "authoring-vectors.json": "82ff7924c8968d7d2fb1ff5711d61425135a7c1a7e375ebc5553488327ea88ad",
         "capabilities.json": "99064e65da8fd238eb0e9146b25953804ab70617034573786943fbf0e1e559de",
         "capability-vectors.json": "7b2608bca89a0c8c3b15c03372fa6e79158158a45d61c1a017a335e6012a2925",
-        "semantic-rules.json": "9f73711ec787c1e5b095fb021ff4f409d54141bfc9e6ac54f4fd7d5c5392f61e",
+        "semantic-rules.json": "38980f0e8ba36b383eb5c77eeee51556d12dbb94dcfcf7cf75d70b2ca315e02c",
         "semantic-vectors.json": "500e27581fb87321bb87dd8b599a4150ba27eaab4a9f385dec4ae52fba1b6092",
         "transport-vectors.json": "cf466d903722987ff51574795c32defa9ec5c5327c511aa0821568a4058b4149",
         "values.schema.json": "0556b9bc85894f2984a4428afe61000b2707c183ef0a1e3ab55d77191ef16b93"
@@ -41,24 +41,24 @@
     },
     "engine": {
       "path": "contracts/agent-input-delivery/v1",
-      "supplierCommit": "5f0bbdfb3b54b76505c85e6733e3b01b3db7dba0",
-      "archiveSha256": "33cce9d9b9e663505cd89a32601f38f2cbbad44de100f1abe646290fb7693d1d",
-      "manifestSha256": "95be7744ddaa32dca794e7d96b9a24ed63ff4e584be90448d109a94c10d97ca2",
+      "supplierCommit": "3ce019769dc3c49a2b1edd1ed8d16afe768628c7",
+      "archiveSha256": "7cb56affbb71e21a17e5a9e685ff03c768f187d80ba087f92f7468617403dcf8",
+      "manifestSha256": "837a237e68cff074acf081e899d1c43d31de77e52a1df5090101318f9681be6c",
       "manifest": {
         "formatVersion": 1,
         "contractVersion": "1",
         "deliveryVersion": "1",
-        "sourceRevision": "211274896e861d392c560ccb346078c5acc58087",
+        "sourceRevision": "99bb9e300d5d2ec781671f3970cf097d86317d75",
         "files": {
-          "README.md": "72de06e05f8af768c5c56235960114234f87e4eb8c8bfae0e11ed235013eed26",
-          "contract.json": "06106175aab710d1ae1972e92c9323449105086bdc6016bbe552641905c885ac",
-          "fixtures.json": "5f98722a990161f943ae47e3f0c06143fd5832bb1ef9b09e67488b5c943b12be"
+          "README.md": "c7a2aac18386488a7bbb506950008d3218bcaff389918a38ae3352c761d30e28",
+          "contract.json": "482f56f9ac77b775ff3ebda2ae957aa2032be6a62b5bc60bf8944a72a86a5816",
+          "fixtures.json": "f4f4ab0b9192e825aebaf64a7350f29170669e6364f4643c76663dcd09850668"
         }
       },
       "files": {
-        "README.md": "72de06e05f8af768c5c56235960114234f87e4eb8c8bfae0e11ed235013eed26",
-        "contract.json": "06106175aab710d1ae1972e92c9323449105086bdc6016bbe552641905c885ac",
-        "fixtures.json": "5f98722a990161f943ae47e3f0c06143fd5832bb1ef9b09e67488b5c943b12be"
+        "README.md": "c7a2aac18386488a7bbb506950008d3218bcaff389918a38ae3352c761d30e28",
+        "contract.json": "482f56f9ac77b775ff3ebda2ae957aa2032be6a62b5bc60bf8944a72a86a5816",
+        "fixtures.json": "f4f4ab0b9192e825aebaf64a7350f29170669e6364f4643c76663dcd09850668"
       },
       "roles": {
         "transport": "contract.json",

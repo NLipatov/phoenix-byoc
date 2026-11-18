@@ -725,5 +725,77 @@
       "semantic": true,
       "capability": "blocked"
     }
+  },
+  {
+    "id": "additional/header-only-platform",
+    "kind": "values",
+    "applicability": "connection-validation",
+    "input": {
+      "agentInputDelivery": {"enabled": true, "allowedEnterpriseIds": ["00000000-0000-4000-8000-000000000001"]},
+      "llm": {
+        "CONFIG_VERSION": "1",
+        "connections": {"example": {"PLATFORM": "portkey", "PUBLISHER": "openai", "AUTH_MODE": "api-key", "API": "openai-responses", "BASE_URL": "https://gateway.example.invalid/v1", "API_KEY_ENV": "EXAMPLE_KEY", "HEADERS_JSON": {"X-Trace": "$TRACE"}}},
+        "secretEnv": {"EXAMPLE_KEY": {"name": "source", "key": "token"}},
+        "platformEnv": ["TRACE"]
+      }
+    },
+    "expected": {"structural": true, "semantic": true, "capability": "blocked"}
+  },
+  {
+    "id": "additional/unused-platform",
+    "kind": "values",
+    "applicability": "connection-validation",
+    "input": {
+      "agentInputDelivery": {"enabled": true, "allowedEnterpriseIds": ["00000000-0000-4000-8000-000000000001"]},
+      "llm": {
+        "CONFIG_VERSION": "1",
+        "connections": {"example": {"PLATFORM": "openai", "PUBLISHER": "openai", "AUTH_MODE": "api-key", "API": "openai-responses", "API_KEY_ENV": "EXAMPLE_KEY"}},
+        "secretEnv": {"EXAMPLE_KEY": {"name": "source", "key": "token"}},
+        "platformEnv": ["UNUSED_TRACE"]
+      }
+    },
+    "expected": {"structural": true, "semantic": true, "capability": "blocked"}
+  },
+  {
+    "id": "additional/generic-native-plain",
+    "kind": "values",
+    "applicability": "connection-validation",
+    "input": {
+      "agentInputDelivery": {"enabled": true, "allowedEnterpriseIds": ["00000000-0000-4000-8000-000000000001"], "env": {"AWS_REGION": "us-east-1"}},
+      "llm": {
+        "CONFIG_VERSION": "1",
+        "connections": {"example": {"PLATFORM": "aws-bedrock", "PUBLISHER": "anthropic", "AUTH_MODE": "aws-workload", "API": "bedrock-converse-stream", "NATIVE_ENV_REFS_JSON": {"AWS_REGION": "AWS_REGION", "AWS_ROLE_ARN": "AWS_ROLE_ARN", "AWS_WEB_IDENTITY_TOKEN_FILE": "AWS_WEB_IDENTITY_TOKEN_FILE"}}},
+        "platformEnv": ["AWS_ROLE_ARN", "AWS_WEB_IDENTITY_TOKEN_FILE"]
+      }
+    },
+    "expected": {"structural": true, "semantic": true, "capability": "blocked"}
+  },
+  {
+    "id": "additional/generic-header-sources",
+    "kind": "values",
+    "applicability": "connection-validation",
+    "input": {
+      "agentInputDelivery": {"enabled": true, "allowedEnterpriseIds": ["00000000-0000-4000-8000-000000000001"], "env": {"TRACE": "synthetic"}, "secretEnv": {"HEADER_TOKEN": {"name": "source", "key": "header"}}},
+      "llm": {
+        "CONFIG_VERSION": "1",
+        "connections": {"example": {"PLATFORM": "portkey", "PUBLISHER": "openai", "AUTH_MODE": "api-key", "API": "openai-responses", "BASE_URL": "https://gateway.example.invalid/v1", "API_KEY_ENV": "EXAMPLE_KEY", "HEADERS_JSON": {"X-Trace": "$TRACE", "X-Custom": "$HEADER_TOKEN"}}},
+        "secretEnv": {"EXAMPLE_KEY": {"name": "source", "key": "token"}}
+      }
+    },
+    "expected": {"structural": true, "semantic": true, "capability": "blocked"}
+  },
+  {
+    "id": "additional/generated-header-source",
+    "kind": "values",
+    "applicability": "connection-validation",
+    "input": {
+      "agentInputDelivery": {"enabled": true, "allowedEnterpriseIds": ["00000000-0000-4000-8000-000000000001"]},
+      "llm": {
+        "CONFIG_VERSION": "1",
+        "connections": {"example": {"PLATFORM": "portkey", "PUBLISHER": "openai", "AUTH_MODE": "api-key", "API": "openai-responses", "BASE_URL": "https://gateway.example.invalid/v1", "API_KEY_ENV": "EXAMPLE_KEY", "HEADERS_JSON": {"X-Trace": "$PHOENIX_LLM_CONFIG_VERSION"}}},
+        "secretEnv": {"EXAMPLE_KEY": {"name": "source", "key": "token"}}
+      }
+    },
+    "expected": {"structural": true, "semantic": false, "capability": "not-applicable", "code": "invalid_header", "path": "HEADERS_JSON", "consumerCodes": {"chart": "source_required", "byoc": "source_required"}}
   }
 ]

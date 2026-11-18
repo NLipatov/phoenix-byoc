@@ -11,7 +11,7 @@ import stat
 from typing import Dict
 from urllib.parse import urlsplit
 
-LOCK_SHA256 = 'd5c5406aff1a9b9d8a4166373da86e618eadcda72b287a14d3de0aa8df38291b'
+LOCK_SHA256 = '668e9af8ce04afdc7807248b43a4ca58eebed603d9d0fa7e09cec9ff9f144c98'
 MAX_LOCK_BYTES = 65536
 MAX_FILE_BYTES = 1024 * 1024
 MAX_TOTAL_BYTES = 4 * MAX_FILE_BYTES
@@ -286,9 +286,14 @@ def _schema_helm(config, bundle):
 
 
 def _transport_json(values):
-    # Exact deterministic UTF-8 representation of the non-secret authoring env.
-    return json.dumps(values, ensure_ascii=False, sort_keys=True,
-                      separators=(',', ':'), allow_nan=False).encode('utf-8')
+    # Match Helm toJson / Go encoding/json for both nested and outer JSON.
+    # Escape literal characters only: an authored backslash-u remains unchanged.
+    text = json.dumps(values, ensure_ascii=False, sort_keys=True,
+                      separators=(',', ':'), allow_nan=False)
+    for character, escaped in (('&', r'\u0026'), ('<', r'\u003c'), ('>', r'\u003e'),
+                               ('\u2028', r'\u2028'), ('\u2029', r'\u2029')):
+        text = text.replace(character, escaped)
+    return text.encode('utf-8')
 
 
 def validate_connections(config: dict, bundle: ContractBundle) -> ValidatedInputs:
@@ -350,8 +355,9 @@ def validate_connections(config: dict, bundle: ContractBundle) -> ValidatedInput
     # Do not reject empty generic strings or inspect unknown Secret bytes.
     if any('\x00' in value for value in tuple(llm_env.values()) + tuple(generic_env.values())):
         raise ContractError('source_required', '/agentInputDelivery/env')
-    plain = dict(generic_env)
-    plain.update(llm_env)
+    declared_plain = dict(generic_env)
+    declared_plain.update(llm_env)
+    plain = dict(declared_plain)
     secrets = {name: SecretKeyRef(**ref) for name, ref in generic_secrets.items()}
     secrets.update({name: SecretKeyRef(**ref) for name, ref in llm_secrets.items()})
     capabilities = json.loads(bundle.capabilities.read_bytes())['entries']
@@ -390,7 +396,7 @@ def validate_connections(config: dict, bundle: ContractBundle) -> ValidatedInput
                 if native_key in platform_native_keys:
                     if destination not in platform:
                         raise ContractError('source_required', path + '/NATIVE_ENV_REFS_JSON')
-                elif destination not in plain or not plain[destination] or _has_control(plain[destination], control_ranges):
+                elif destination not in declared_plain or not declared_plain[destination] or _has_control(declared_plain[destination], control_ranges):
                     raise ContractError('source_required', path + '/NATIVE_ENV_REFS_JSON')
             if 'BASE_URL' in connection and not _valid_url(connection['BASE_URL'], rules['urls']['scheme'], control_ranges):
                 raise ContractError('invalid_authoring', path + '/BASE_URL')
@@ -407,11 +413,11 @@ def validate_connections(config: dict, bundle: ContractBundle) -> ValidatedInput
                 ref = _HEADER_REF.fullmatch(value)
                 if ref:
                     destination = ref.group(1)
-                    sources = {'plain': destination in plain, 'secrets': destination in secrets,
+                    sources = {'plain': destination in declared_plain, 'secrets': destination in secrets,
                                'platform': destination in platform}
                     if sum(sources.values()) != 1 or not any(sources[source] for source in header_sources):
                         raise ContractError('source_required', path + '/HEADERS_JSON')
-                    if destination in plain and not _header_value(plain[destination], control_ranges):
+                    if destination in declared_plain and not _header_value(declared_plain[destination], control_ranges):
                         raise ContractError('header_invalid', path + '/HEADERS_JSON')
                 elif not _header_literal(value, control_ranges):
                     raise ContractError('header_invalid', path + '/HEADERS_JSON')

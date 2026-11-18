@@ -2,10 +2,10 @@
   "formatVersion": 1,
   "contractVersion": "1",
   "deliveryVersion": "1",
-  "sourceRevision": "211274896e861d392c560ccb346078c5acc58087",
+  "sourceRevision": "99bb9e300d5d2ec781671f3970cf097d86317d75",
   "files": {
-    "README.md": "72de06e05f8af768c5c56235960114234f87e4eb8c8bfae0e11ed235013eed26",
-    "contract.json": "06106175aab710d1ae1972e92c9323449105086bdc6016bbe552641905c885ac",
-    "fixtures.json": "5f98722a990161f943ae47e3f0c06143fd5832bb1ef9b09e67488b5c943b12be"
+    "README.md": "c7a2aac18386488a7bbb506950008d3218bcaff389918a38ae3352c761d30e28",
+    "contract.json": "482f56f9ac77b775ff3ebda2ae957aa2032be6a62b5bc60bf8944a72a86a5816",
+    "fixtures.json": "f4f4ab0b9192e825aebaf64a7350f29170669e6364f4643c76663dcd09850668"
   }
 }

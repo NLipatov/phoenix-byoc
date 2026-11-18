@@ -3,13 +3,13 @@
   "contractVersion": "1",
   "deliveryVersion": "1",
   "piVersion": "1.4.0",
-  "sourceRevision": "706d0348edf69a94cc9a76d2d76f7eb3c0567fac0daaec96cb56ebdd044f504a",
+  "sourceRevision": "3ed6c2d8b48bdaaf4a7178a106816e2c58fcd8c928ac296b8084252246127e6a",
   "files": {
-    "README.md": "7d077ab0358b48b41fd655a487c9fc8bb9cae251706b20d3a6623e1ba88f2564",
-    "authoring-vectors.json": "8f7c0aba07b7d64d8a073d3d47c25a9af4a875b68f810b541c718d5f157f56b7",
+    "README.md": "fcefaacb28fbc2967707236d0b8eacde0df8d5230906162ab651b5b931a75f9f",
+    "authoring-vectors.json": "82ff7924c8968d7d2fb1ff5711d61425135a7c1a7e375ebc5553488327ea88ad",
     "capabilities.json": "99064e65da8fd238eb0e9146b25953804ab70617034573786943fbf0e1e559de",
     "capability-vectors.json": "7b2608bca89a0c8c3b15c03372fa6e79158158a45d61c1a017a335e6012a2925",
-    "semantic-rules.json": "9f73711ec787c1e5b095fb021ff4f409d54141bfc9e6ac54f4fd7d5c5392f61e",
+    "semantic-rules.json": "38980f0e8ba36b383eb5c77eeee51556d12dbb94dcfcf7cf75d70b2ca315e02c",
     "semantic-vectors.json": "500e27581fb87321bb87dd8b599a4150ba27eaab4a9f385dec4ae52fba1b6092",
     "transport-vectors.json": "cf466d903722987ff51574795c32defa9ec5c5327c511aa0821568a4058b4149",
     "values.schema.json": "0556b9bc85894f2984a4428afe61000b2707c183ef0a1e3ab55d77191ef16b93"

@@ -52,6 +52,13 @@ def _contains_blocks(node):
 
 def _projection(document):
     envelope = dict(document)
+    nodes = _plain(envelope['nodes'], '/')
+    if len(nodes) > 100000:
+        raise ContractError('yaml_process_limit', '/')
+    # yq omits data/entries for a null root. Ignore only a genuine YAML null
+    # document, not unsupported scalar/tagged roots or empty protected blocks.
+    if nodes == [{'path': [], 'kind': 'scalar', 'tag': '!!null', 'key': False}]:
+        return None
     data = envelope['data']
     if not isinstance(data, _Pairs):
         raise ContractError('yaml_representation_unsupported', '/')
@@ -63,9 +70,6 @@ def _projection(document):
             if key in config:
                 raise ContractError('yaml_duplicate_authoring_key', '/' + key)
             config[key] = _plain(value, '/' + key)
-    nodes = _plain(envelope['nodes'], '/')
-    if len(nodes) > 100000:
-        raise ContractError('yaml_process_limit', '/')
     # Inspect every protected mapping's raw entries, not just the descendant
     # nodes: descent can hide an earlier merge/alias behind a quoted << key,
     # while JSON encoding removes even an ordinary string << entry entirely.
@@ -119,7 +123,10 @@ def _decode(payload):
 
 def _read(path):
     try:
-        fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK | getattr(os, 'O_NOFOLLOW', 0))
+        # Customer-selected links are supported; the installer guard separately
+        # binds the selected path, resolved target and exact bytes across phases.
+        target = Path(path).resolve(strict=True)
+        fd = os.open(target, os.O_RDONLY | os.O_NONBLOCK | getattr(os, 'O_NOFOLLOW', 0))
         try:
             info = os.fstat(fd)
             if not stat.S_ISREG(info.st_mode):
@@ -133,7 +140,7 @@ def _read(path):
             return content
         finally:
             os.close(fd)
-    except (OSError, ValueError):
+    except (OSError, ValueError, RuntimeError):
         raise ContractError('yaml_input_invalid', '/') from None
 
 
@@ -194,6 +201,16 @@ def load_yaml_authoring(release, defaults, values, secrets, bundle=None):
     closed; unrelated legacy YAML is not subject to those restrictions. Callers
     must pass the result to validate_connections for complete final validation.
     """
+    # Helmfile evaluates selected *.gotmpl files, so their raw YAML is not
+    # necessarily the configuration we validated. Reject before any tool runs.
+    for path in (release, defaults, values, secrets):
+        selected = str(path)
+        if selected.endswith('.gotmpl'):
+            raise ContractError('yaml_template_unsupported', '/')
+        # Helmfile globs the selection even when a literal readable file exists.
+        # Escapes can also redirect it to different bytes than this raw reader.
+        if any(character in selected for character in '*?[\\'):
+            raise ContractError('yaml_path_pattern_unsupported', '/')
     layers = []
     try:
         yq = shutil.which('yq')
@@ -203,8 +220,9 @@ def load_yaml_authoring(release, defaults, values, secrets, bundle=None):
             raise ContractError('yaml_tool_version', '/')
         for path in (release, defaults, values, secrets):
             output = _run(yq, ['eval', '-o=json', '-I=0', RAW_NODES, '-'], _read(path))
-            documents = [_projection(_decode(line)) for line in output.splitlines()]
-            if not documents or (len(documents) != 1 and any(documents)):
+            projections = [_projection(_decode(line)) for line in output.splitlines()]
+            documents = [config for config in projections if config is not None]
+            if not projections or (len(documents) > 1 and any(documents)):
                 raise ContractError('yaml_representation_unsupported', '/')
             for config in documents:
                 for key, value in config.items():

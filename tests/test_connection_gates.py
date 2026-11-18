@@ -185,11 +185,13 @@ class ConnectionGatesTest(unittest.TestCase):
 
     def test_invalid_and_unsupported_gate_before_reads_or_render(self):
         f = self.fixture
-        cases = [f.vector('generic_only'), f.vector('subscription_auth_rejected'),
-                 f.vector('valid/portkey-anthropic/openai-responses/api-key'),
-                 {'agentInputDelivery': {'enabled': False, 'env': {'PAD': CANARY}}}, {'llm': None}]
+        cases = [(f.vector('generic_only'), 'connection_release_unsupported'),
+                 (f.vector('subscription_auth_rejected'), 'connection_schema_invalid'),
+                 (f.vector('valid/portkey-anthropic/openai-responses/api-key'), 'connection_capability_unsupported'),
+                 ({'agentInputDelivery': {'enabled': False, 'env': {'PAD': CANARY}}}, 'connection_schema_invalid'),
+                 ({'llm': None}, 'connection_schema_invalid')]
         for script in ('preflight.sh', 'render.sh'):
-            for index, config in enumerate(cases):
+            for index, (config, code) in enumerate(cases):
                 with self.subTest(script=script, case=index):
                     f.log.unlink(missing_ok=True)
                     f.write_values({**f.values, **config})
@@ -198,23 +200,78 @@ class ConnectionGatesTest(unittest.TestCase):
                     (render / 'all.yaml').write_text('stale')
                     result = f.run(script)
                     self.assertNotEqual(result.returncode, 0)
+                    self.assertIn(code + ': /', result.stderr)
                     self.assertFalse(any(e['kind'] in ('read', 'mutation', 'render-start') for e in f.events()))
                     if script == 'render.sh':
                         self.assertFalse((render / 'all.yaml').exists())
                         self.assertEqual(list(render.glob('.render.*')), [])
 
+    def test_template_selected_paths_rejected_before_reads_or_render(self):
+        f = self.fixture
+        for script in ('preflight.sh', 'render.sh'):
+            for variable, original in (('PHOENIX_BYOC_VALUES_FILE', f.values_path),
+                                       ('PHOENIX_BYOC_SECRETS_FILE', f.secrets_path)):
+                for suffix, code in (('.yaml.gotmpl', 'yaml_template_unsupported'),
+                                     ('.[g]otmpl', 'yaml_path_pattern_unsupported')):
+                    with self.subTest(script=script, variable=variable, suffix=suffix):
+                        f.log.unlink(missing_ok=True)
+                        selected = original.with_suffix(suffix)
+                        selected.write_bytes(original.read_bytes() + b'\n# {{ "llm: {}" }}\n')
+                        f.env[variable] = str(selected)
+                        result = f.run(script)
+                        self.assertNotEqual(result.returncode, 0)
+                        self.assertIn(code + ': /', result.stderr)
+                        self.assertFalse(any(e['kind'] in ('read', 'mutation', 'render-start') for e in f.events()))
+                    f.env[variable] = str(original)
+
+    def test_gate_unexpected_interpreter_output_is_not_forwarded(self):
+        f = self.fixture
+        helper = f.repo / 'scripts/connection-config.py'
+        for body in ('raise RuntimeError(' + repr(CANARY) + ')',
+                     'import sys; print(' + repr(CANARY) + '); '
+                     'print("yaml_tool_version: /" + ' + repr(CANARY) + ', file=sys.stderr); sys.exit(1)',
+                     'import sys; print(' + repr(CANARY + ': /') + ', file=sys.stderr); sys.exit(1)',
+                     'import missing_fixture_module_' + CANARY,
+                     'import sys; sys.stderr.write(' + repr('yaml_tool_version: /\n' + CANARY) + '); sys.exit(1)',
+                     'import sys; sys.stderr.write(' + repr('yaml_tool_version: /\x00' + CANARY) + '); sys.exit(1)',
+                     *('import sys; sys.stderr.write("x" * ' + str(size) + ' + ' + repr(CANARY) + '); sys.exit(1)'
+                       for size in (255, 256, 257, 65536))):
+            helper.write_text(body)
+            for script in ('preflight.sh', 'render.sh'):
+                with self.subTest(script=script, failure=body[:12]):
+                    f.log.unlink(missing_ok=True)
+                    result = f.run(script)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn('connection_gate_failed', result.stderr)
+                    self.assertLess(len(result.stderr), 200)
+                    self.assertFalse(any(e['kind'] in ('read', 'mutation', 'render-start') for e in f.events()))
+
+    def test_wrong_yq_version_reports_safe_code(self):
+        f = self.fixture
+        helper = f.repo / 'scripts/connection_yaml.py'
+        original = helper.read_text()
+        helper.write_text(original.replace('version v4.49.2', 'version v0.0.0'))
+        for script in ('preflight.sh', 'render.sh'):
+            result = f.run(script)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('yaml_tool_version: /', result.stderr)
+            self.assertFalse(any(e['kind'] in ('read', 'mutation', 'render-start') for e in f.events()))
+
     def test_raw_duplicates_and_invalid_final_overlay(self):
         f = self.fixture
         for script in ('preflight.sh', 'render.sh'):
-            for raw in ('agentInputDelivery: null\nagentInputDelivery: {enabled: false}\n',
-                        'agentInputDelivery: {enabled: false, enabled: false}\n',
-                        'agentInputDelivery: {}\n', 'llm: [unterminated_' + CANARY):
+            for raw, code in (
+                    ('agentInputDelivery: null\nagentInputDelivery: {enabled: false}\n', 'yaml_duplicate_authoring_key'),
+                    ('agentInputDelivery: {enabled: false, enabled: false}\n', 'yaml_duplicate_authoring_key'),
+                    ('agentInputDelivery: {}\n', 'connection_schema_invalid'),
+                    ('llm: [unterminated_' + CANARY, 'yaml_parse_invalid')):
                 with self.subTest(script=script, case=raw.split(':')[0]):
                     f.log.unlink(missing_ok=True)
                     f.write_values(f.values)
                     f.write_secrets('secrets: ' + json.dumps(f.secrets['secrets']) + '\n' + raw)
                     result = f.run(script)
                     self.assertNotEqual(result.returncode, 0)
+                    self.assertIn(code + ': /', result.stderr)
                     self.assertFalse(any(e['kind'] in ('read', 'mutation', 'render-start') for e in f.events()))
 
     def test_legacy_and_disabled_controls_and_absent_contract_assets(self):

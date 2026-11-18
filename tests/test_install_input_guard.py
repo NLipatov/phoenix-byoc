@@ -7,12 +7,14 @@ import base64
 import json
 import os
 from pathlib import Path
+import runpy
 import shutil
 import stat
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 REPO = Path(__file__).resolve().parents[1]
 YQ = shutil.which('yq')
@@ -45,8 +47,15 @@ def change(stage):
     if os.environ.get('CHANGE_STAGE') == stage:
         target = Path(os.environ['CHANGE_TARGET'])
         target.parent.mkdir(parents=True, exist_ok=True)
-        with target.open('ab') as stream:
-            stream.write(b'\n# changed fixture input\n')
+        mode = os.environ.get('CHANGE_MODE')
+        if mode == 'retarget':
+            target.unlink()
+            target.symlink_to(os.environ['RETARGET'])
+        elif mode == 'identical':
+            target.write_bytes(target.read_bytes())
+        else:
+            with target.open('ab') as stream:
+                stream.write(b'\n# changed fixture input\n')
         event('changed:' + stage)
 
 def unknown():
@@ -235,6 +244,35 @@ class InstallInputGuardTests(unittest.TestCase):
                          'behavioral rejection required; events=' + repr(self.names))
         self.assertIn('install_inputs_changed_or_unavailable', result.stderr)
 
+    def test_stable_selected_symlink_preserves_install(self):
+        target = self.workspace / 'values-target.yaml'
+        target.write_bytes(self.values.read_bytes())
+        self.values.unlink()
+        self.values.symlink_to(target)
+        result = self.run_install()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(self.values.is_symlink())
+        self.assertEqual(self.names[-1], 'verify')
+
+    def test_selected_symlink_target_edit_aborts(self):
+        target = self.workspace / 'values-target.yaml'
+        target.write_bytes(self.values.read_bytes())
+        self.values.unlink()
+        self.values.symlink_to(target)
+        self.change_at('render', target)
+        self.assert_rejected(self.run_install())
+
+    def test_selected_symlink_retarget_with_identical_bytes_aborts(self):
+        target = self.workspace / 'values-target.yaml'
+        alternate = self.workspace / 'values-alternate.yaml'
+        target.write_bytes(self.values.read_bytes())
+        alternate.write_bytes(target.read_bytes())
+        self.values.unlink()
+        self.values.symlink_to(target)
+        self.change_at('render', self.values)
+        self.env.update(CHANGE_MODE='retarget', RETARGET=str(alternate))
+        self.assert_rejected(self.run_install())
+
     def test_changed_values_at_render_has_zero_mutations(self):
         self.change_at('render', self.values)
         self.assert_rejected(self.run_install())
@@ -368,7 +406,8 @@ class InstallInputGuardTests(unittest.TestCase):
         result = self.run_install()
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.names, [])
-        self.assertIn('install_inputs_changed_or_unavailable', result.stderr)
+        self.assertIn('install_inputs_limit_exceeded', result.stderr)
+        self.assertIn('reduce selected inputs or installer-owned cache', result.stderr)
 
     def test_special_selected_input_fails_without_blocking(self):
         self.values.unlink()
@@ -413,6 +452,20 @@ class InstallInputGuardTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.mutations, ['MUTATE:secret', 'MUTATE:fuse', 'MUTATE:sync'])
 
+    def test_cache_write_during_sync_blocks_service_account(self):
+        self.change_at('sync', self.cache / 'Chart.yaml')
+        result = self.run_install()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.mutations, ['MUTATE:secret', 'MUTATE:fuse', 'MUTATE:sync'])
+        self.assertNotIn('verify', self.names)
+
+    def test_identical_cache_rewrite_during_sync_remains_valid(self):
+        self.change_at('sync', self.cache / 'Chart.yaml')
+        self.env['CHANGE_MODE'] = 'identical'
+        result = self.run_install()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.names[-1], 'verify')
+
     def test_signal_cleans_private_snapshots(self):
         self.env['SIGNAL_RENDER'] = '1'
         result = self.run_install()
@@ -432,6 +485,41 @@ class InstallInputGuardTests(unittest.TestCase):
         self.assertIn('Internal secret generation completed.', result.stdout)
         self.assertEqual(stat.S_IMODE(self.secrets.stat().st_mode), 0o600)
         self.assertEqual(self.names[-1], 'verify')
+
+
+class SnapshotLimitTests(unittest.TestCase):
+    def test_collect_exact_byte_and_entry_bounds_and_overflow(self):
+        module = runpy.run_path(str(REPO / 'scripts/install-input-guard.py'))
+        collect = module['collect']
+        with tempfile.TemporaryDirectory(prefix='guard-limits-') as temp:
+            root = Path(temp)
+            (root / 'a').write_bytes(b'abcd')
+            (root / 'b').write_bytes(b'ef')
+            limits = {'MAX_FILE': 4, 'MAX_TOTAL': 6, 'MAX_ENTRIES': 3}
+            with patch.dict(collect.__globals__, limits):
+                self.assertEqual(len(collect([root])), 3)
+            for name, value in (('MAX_FILE', 3), ('MAX_TOTAL', 5), ('MAX_ENTRIES', 2)):
+                with self.subTest(limit=name), patch.dict(collect.__globals__, {**limits, name: value}):
+                    with self.assertRaises(Exception) as caught:
+                        collect([root])
+                    self.assertEqual(type(caught.exception).__name__, 'InputLimitExceeded')
+
+    def test_cache_traversal_exact_entry_bound_and_overflow(self):
+        module = runpy.run_path(str(REPO / 'scripts/install-input-guard.py'))
+        cache_inputs = module['cache_inputs']
+        with tempfile.TemporaryDirectory(prefix='guard-cache-limits-') as temp:
+            root = Path(temp)
+            cache = root / '.tmp/helmfile-cache'
+            cache.mkdir(parents=True)
+            for name in ('unrelated-a', 'unrelated-b'):
+                (cache / name).write_bytes(b'')
+            with patch.dict(os.environ, {'HELMFILE_CACHE_HOME': str(cache)}), \
+                    patch.dict(cache_inputs.__globals__, {'MAX_ENTRIES': 2}):
+                self.assertEqual(cache_inputs(root), {})
+                (cache / 'unrelated-c').write_bytes(b'')
+                with self.assertRaises(Exception) as caught:
+                    cache_inputs(root)
+                self.assertEqual(type(caught.exception).__name__, 'InputLimitExceeded')
 
 
 if __name__ == '__main__':

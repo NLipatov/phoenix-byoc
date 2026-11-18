@@ -17,9 +17,9 @@ from connection_render_fixture import copy_source_files, digest, extract
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / 'tests/fixtures/connection-render'
-CANDIDATE_SHA = 'd0f49a00daaca6ed875ecf1d7c5cec870043d97635b833c1248988b552f8b0af'
+CANDIDATE_SHA = '16f17dd04060d66cbf0ca9684be89c7a43521a1ae6758314f5b1a3ea4442fa21'
 LEGACY_TEMPLATE_SHA = '268711a0f6978513874453e801bf64cbf3b21a09f9b302db695e93caee145d8c'
-LOCK_SHA = 'd5c5406aff1a9b9d8a4166373da86e618eadcda72b287a14d3de0aa8df38291b'
+LOCK_SHA = '668e9af8ce04afdc7807248b43a4ca58eebed603d9d0fa7e09cec9ff9f144c98'
 ENTERPRISE = '12345678-1234-4234-8234-123456789abc'  # synthetic, not a customer identity
 
 
@@ -70,7 +70,7 @@ class ConnectionRenderTest(unittest.TestCase):
                 cls.old_archive = archive
         candidate = manifest['unreleasedEngine']
         candidate_archive = FIXTURES / candidate['archive']
-        if (candidate['sourceCommit'] != '8fa3ecba678acd8599fd90aa2f0e9e4d7e0ca38d'
+        if (candidate['sourceCommit'] != '22a0a3f0a954f34165383dff26b94f0c3c3883cf'
                 or candidate['status'] != 'unreleased Git-source candidate; fixture only, not a published release'
                 or candidate['sha256'] != CANDIDATE_SHA or digest(candidate_archive) != CANDIDATE_SHA):
             raise RuntimeError('unreleased chart candidate provenance mismatch')
@@ -202,11 +202,47 @@ class ConnectionRenderTest(unittest.TestCase):
                     capabilities.write_bytes(original_capabilities)
             return result, ([projected_values] if forwarded else list(yaml.safe_load_all(result.stdout))) if result.returncode == 0 else []
 
+    def test_literal_selection_gate_rejects_helmfile_glob_expansion(self):
+        sys.path.insert(0, str(ROOT / 'scripts'))
+        from connection_contract import ContractError
+        from connection_yaml import load_yaml_authoring
+        with tempfile.TemporaryDirectory(dir=self.work) as temp:
+            root = Path(temp)
+            empty = root / 'empty.yaml'
+            empty.write_text('{}\n')
+            selected = root / 'values.[g]otmpl'
+            selected.write_text('marker: literal\nagentInputDelivery: {enabled: false}\n')
+            (root / 'values.gotmpl').write_text(
+                'marker: {{ "templated" }}\nagentInputDelivery: {enabled: true}\n')
+            state = root / 'state.yaml.gotmpl'
+            state.write_text('environments:\n  default:\n    values:\n      - ' + json.dumps(str(selected)) + '\n---\n'
+                             'releases:\n  - name: offline-probe\n    chart: ./never-executed\n    values:\n'
+                             '      - observedMarker: {{ .Values.marker | quote }}\n'
+                             '        deliveryEnabled: {{ .Values.agentInputDelivery.enabled }}\n')
+            version_only = root / 'version-only'
+            version_only.write_text('#!/bin/sh\n'
+                                    'if [ "$#" -eq 3 ] && [ "$1" = version ] && [ "$2" = --client ] && [ "$3" = --short ]; then\n'
+                                    '  exec ' + shlex.quote(self.helm) + ' "$@"\n'
+                                    'fi\nprintf "UNEXPECTED_HELPER_OPERATION\\n" >&2\nexit 97\n')
+            version_only.chmod(0o700)
+            env = {'PATH': '/usr/bin:/bin', 'HOME': str(self.isolation / 'home'), 'KUBECONFIG': '/dev/null',
+                   'HTTPS_PROXY': 'http://127.0.0.1:9', 'HTTP_PROXY': 'http://127.0.0.1:9', 'NO_PROXY': ''}
+            result = subprocess.run([self.helmfile, '-f', str(state), '--helm-binary', str(version_only),
+                                     '--kustomize-binary', str(version_only), '--skip-deps', 'build'],
+                                    cwd=root, env=env, capture_output=True, text=True, timeout=30)
+            self.assertNotIn('UNEXPECTED_HELPER_OPERATION', result.stdout + result.stderr)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            rendered = yaml.safe_load(result.stdout)['renderedvalues']
+            self.assertEqual(rendered, {'marker': 'templated', 'agentInputDelivery': {'enabled': True}})
+            with self.assertRaises(ContractError) as caught:
+                load_yaml_authoring(empty, empty, selected, empty)
+            self.assertEqual(caught.exception.code, 'yaml_path_pattern_unsupported')
+
     def test_render_script_publishes_full_offline_helmfile_output(self):
         # Same checked repo-owned chart fixture, but exercise the actual render.sh.
         (self.source / 'scripts').mkdir(exist_ok=True)
         shutil.copy2(ROOT / 'scripts/render.sh', self.source / 'scripts/render.sh')
-        for name in ('connection-config.py', 'connection_yaml.py', 'connection_contract.py'):
+        for name in ('connection-config.py', 'connection_yaml.py', 'connection_contract.py', 'connection-gate.sh'):
             shutil.copy2(ROOT / 'scripts' / name, self.source / 'scripts' / name)
         shutil.copytree(ROOT / 'contracts', self.source / 'contracts')
         yq = shutil.which('yq')
