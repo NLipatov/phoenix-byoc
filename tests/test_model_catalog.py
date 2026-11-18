@@ -112,5 +112,24 @@ class ModelCatalogTests(unittest.TestCase):
         self.assertEqual(self.render_web_models(customer), models)
 
 
+@unittest.skipUnless(TOOLS and shutil.which("helm") and shutil.which("kubectl"),
+                     "requires yq, helmfile, helm and kubectl")
+class PreflightModelCatalogTests(unittest.TestCase):
+    def test_preflight_rejects_bad_models(self):
+        with tempfile.TemporaryDirectory() as temp:
+            values = Path(temp) / "values.yaml"
+            secrets = Path(temp) / "values.secrets.yaml"
+            values.write_text((ROOT / "tests/fixtures/values.yaml").read_text()
+                              + "\nmodels:\n  - {id: Anthropic/x, profile: fast}\n")
+            secrets.write_text((ROOT / "tests/fixtures/values.secrets.yaml").read_text())
+            env = dict(os.environ, PHOENIX_BYOC_LOCAL_CHARTS=CHARTS,
+                       PHOENIX_BYOC_VALUES_FILE=str(values), PHOENIX_BYOC_SECRETS_FILE=str(secrets),
+                       PHOENIX_BYOC_NAMESPACE="phoenix-model-catalog-test")
+            result = subprocess.run([str(ROOT / "scripts/preflight.sh")], cwd=ROOT, env=env,
+                                    text=True, capture_output=True)
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("models[0]: invalid id Anthropic/x", result.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()

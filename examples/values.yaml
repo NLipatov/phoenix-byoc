@@ -127,8 +127,12 @@ vertex:
 # the dated ID (for example claude-haiku-4-5@20251001).
 # models:
 #   - {id: anthropic-vertex/claude-opus-5, profile: reasoning}
+#   - {id: anthropic-vertex/claude-opus-5-5, profile: reasoning_latest}
 #   - {id: anthropic-vertex/claude-sonnet-5, profile: standard}
-#   - {id: anthropic-vertex/claude-haiku-4-5@20251001, profile: fast}
+#   - {id: anthropic-vertex/claude-sonnet-5-5, profile: standard_latest}
+#   - {id: anthropic-vertex/claude-sonnet-4-6, profile: orchestration}
+#   - {id: anthropic-vertex/claude-haiku-5-5, profile: fast}
+#   - {id: anthropic-vertex/claude-haiku-4-5@20251001, profile: fast_previous}
 
 application:
   agentBundles:
