@@ -289,8 +289,8 @@ an `id` and a `profile`:
 
 ```yaml
 models:
-  - id: anthropic/claude-sonnet-5
-    profile: standard
+  - id: anthropic/claude-sonnet-5-5
+    profile: standard_latest
 ```
 
 - `id` is `<provider>/<model>` (for example `anthropic/...` or
@@ -309,7 +309,8 @@ phoenix-web chart 0.2.7 or later; earlier charts ignore it.
 If you leave `models` unset (or empty), the installer uses the default list for
 your provider: `defaultModels.vertex` (`anthropic-vertex/...` IDs) when
 `vertex.enabled` is true, otherwise `defaultModels.anthropic` (`anthropic/...`
-IDs for the direct Anthropic API). A list you set in `values.yaml` replaces the
+IDs for the direct Anthropic API). Both default lists hold the current models:
+Opus 5.5, Sonnet 5.5 and Haiku 5.5. A list you set in `values.yaml` replaces the
 default list; it is not merged with it. BYOC does not check the IDs against
 your credentials. You are responsible for IDs that your provider accepts.
 
@@ -319,8 +320,7 @@ On Vertex, use the dated ID for Claude 4.5 models
 the ID that goes to the provider.
 
 `profile` is a display name only. Agent versions store the `id`, so the set of
-profiles can differ by provider. For example, the Vertex default list has no
-`fast_previous_pinned`, because on Vertex it is the same ID as `fast_previous`.
+profiles can differ by provider.
 
 Changing `models` and re-running the install updates what Phoenix Web offers
 for new work. Agent versions that are already sealed keep the model they were

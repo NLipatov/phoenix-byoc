@@ -126,7 +126,7 @@ vertex:
 # your provider (it follows `vertex.enabled`). A list here replaces the default:
 # models:
 #   - {id: anthropic-vertex/claude-sonnet-5-5, profile: standard_latest}
-#   - {id: anthropic-vertex/claude-haiku-4-5@20251001, profile: fast_previous}
+#   - {id: anthropic-vertex/claude-haiku-5-5, profile: fast}
 
 application:
   agentBundles:

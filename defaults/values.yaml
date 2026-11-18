@@ -154,23 +154,15 @@ vertex:
 # Needs the phoenix-web chart 0.2.7 or later; earlier charts ignore it.
 models: []
 defaultModels:
+  # The current models only. Fable 5.2 joins when the agents support it.
   vertex:
-    - {id: anthropic-vertex/claude-opus-5, profile: reasoning}
     - {id: anthropic-vertex/claude-opus-5-5, profile: reasoning_latest}
-    - {id: anthropic-vertex/claude-sonnet-5, profile: standard}
     - {id: anthropic-vertex/claude-sonnet-5-5, profile: standard_latest}
-    - {id: anthropic-vertex/claude-sonnet-4-6, profile: orchestration}
     - {id: anthropic-vertex/claude-haiku-5-5, profile: fast}
-    - {id: "anthropic-vertex/claude-haiku-4-5@20251001", profile: fast_previous}
   anthropic:
-    - {id: anthropic/claude-opus-5, profile: reasoning}
     - {id: anthropic/claude-opus-5-5, profile: reasoning_latest}
-    - {id: anthropic/claude-sonnet-5, profile: standard}
     - {id: anthropic/claude-sonnet-5-5, profile: standard_latest}
-    - {id: anthropic/claude-sonnet-4-6, profile: orchestration}
     - {id: anthropic/claude-haiku-5-5, profile: fast}
-    - {id: anthropic/claude-haiku-4-5, profile: fast_previous}
-    - {id: anthropic/claude-haiku-4-5-20251001, profile: fast_previous_pinned}
 
 application:
   tenantId: phoenix

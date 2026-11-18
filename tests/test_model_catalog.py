@@ -48,6 +48,16 @@ class ModelCatalogCheckTests(unittest.TestCase):
         doc["vertex"]["enabled"] = True
         self.assertEqual(self.check(doc), [])
 
+    @unittest.skipUnless(shutil.which("yq"), "requires Mike Farah yq")
+    def test_default_lists_hold_the_current_models(self):
+        # Fable 5.2 joins when the agents' Pi version has it in its model catalog.
+        current = [("claude-opus-5-5", "reasoning_latest"), ("claude-sonnet-5-5", "standard_latest"),
+                   ("claude-haiku-5-5", "fast")]
+        for key, route in (("anthropic", "anthropic"), ("vertex", "anthropic-vertex")):
+            with self.subTest(key=key):
+                self.assertEqual(default_models(key),
+                                 [{"id": f"{route}/{model}", "profile": profile} for model, profile in current])
+
     def test_empty_and_missing_list_without_defaults(self):
         want = ["defaultModels.anthropic: at least 1 model is required"]
         self.assertEqual(self.check(models()), want)
