@@ -20,3 +20,4 @@ jobs:
           chmod +x "$RUNNER_TEMP/yq"
           echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
       - run: python3 -m unittest discover -s tests -p 'test_evals.py' -v
+      - run: python3 -m unittest discover -s tests -p 'test_model_catalog.py' -v

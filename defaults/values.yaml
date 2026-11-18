@@ -146,6 +146,21 @@ vertex:
     sonnet: claude-sonnet-5
     haiku: claude-haiku-4-5@20251001
 
+# Models that Phoenix Web offers to agents: a list of {id, profile}.
+# id is "<provider>/<model>" and must be an ID that your provider accepts;
+# profile is a lowercase name, unique in the list. A list you set replaces this
+# one. These defaults use the direct Anthropic API. With vertex.enabled: true,
+# set models with anthropic-vertex/... IDs (see examples/values.yaml).
+models:
+  - {id: anthropic/claude-opus-5, profile: reasoning}
+  - {id: anthropic/claude-opus-5-5, profile: reasoning_latest}
+  - {id: anthropic/claude-sonnet-5, profile: standard}
+  - {id: anthropic/claude-sonnet-5-5, profile: standard_latest}
+  - {id: anthropic/claude-sonnet-4-6, profile: orchestration}
+  - {id: anthropic/claude-haiku-5-5, profile: fast}
+  - {id: anthropic/claude-haiku-4-5, profile: fast_previous}
+  - {id: anthropic/claude-haiku-4-5-20251001, profile: fast_previous_pinned}
+
 application:
   tenantId: phoenix
   appHost: phoenix.example.com

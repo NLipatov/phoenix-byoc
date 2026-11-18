@@ -282,6 +282,41 @@ For an unauthenticated SMTP relay, set `deliveryMethod: smtp`, configure
 `smtp.authentication` and `secrets.application.smtpPassword` empty. The
 application then connects to the relay without starting SMTP authentication.
 
+## Allowed models
+
+`models` is the list of models that Phoenix Web offers to agents. Each entry has
+an `id` and a `profile`:
+
+```yaml
+models:
+  - id: anthropic/claude-sonnet-5
+    profile: standard
+```
+
+- `id` is `<provider>/<model>` (for example `anthropic/...` or
+  `anthropic-vertex/...`) and must be unique;
+- `profile` is a lowercase name of up to 64 characters (letters, digits and
+  `_`, starting with a letter) and must be unique;
+- the list has at least one model.
+
+Phoenix Web receives this list as `web.models`. It is a Phoenix Web catalog,
+not a connection field, and it is not sent to the agents.
+
+The default list uses `anthropic/...` IDs for the direct Anthropic API. A list
+you set in `values.yaml` replaces the default list; it is not merged with it.
+BYOC does not check the IDs against your credentials. You are responsible for
+IDs that your provider accepts.
+
+With `vertex.enabled: true`, set `models` with `anthropic-vertex/...` IDs.
+Vertex cannot run an undated 4.5 ID: use the dated ID
+(`anthropic-vertex/claude-haiku-4-5@20251001`, not
+`anthropic-vertex/claude-haiku-4-5`). `examples/values.yaml` has a full Vertex
+list.
+
+Changing `models` and re-running the install updates what Phoenix Web offers
+for new work. Agent versions that are already sealed keep the model they were
+sealed with; changing `models` does not change them.
+
 ## Claude Code through Google Vertex AI
 
 `vertex.enabled` optionally routes sandboxed Claude Code agents through Google
