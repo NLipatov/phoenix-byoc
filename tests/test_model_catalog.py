@@ -15,10 +15,10 @@ TOOLS = all(shutil.which(tool) for tool in ("yq", "helmfile", "helm"))
 PREFLIGHT_TOOLS = TOOLS and bool(shutil.which("kubectl"))
 
 
-def default_models():
-    """The shipped default list, read from defaults/values.yaml (not a copy)."""
+def default_models(key="anthropic"):
+    """A shipped default list, read from defaults/values.yaml (not a copy)."""
     return json.loads(subprocess.check_output(
-        ["yq", "-o=json", ".models", str(ROOT / "defaults/values.yaml")], text=True))
+        ["yq", "-o=json", f".defaultModels.{key}", str(ROOT / "defaults/values.yaml")], text=True))
 
 
 def models(*entries):
@@ -45,11 +45,25 @@ class ModelCatalogCheckTests(unittest.TestCase):
         doc = json.loads(subprocess.check_output(
             ["yq", "-o=json", ".", str(ROOT / "defaults/values.yaml")], text=True))
         self.assertEqual(self.check(doc), [])
+        doc["vertex"]["enabled"] = True
+        self.assertEqual(self.check(doc), [])
 
-    def test_empty_and_missing_list(self):
-        want = ["models: at least 1 model is required"]
+    def test_empty_and_missing_list_without_defaults(self):
+        want = ["defaultModels.anthropic: at least 1 model is required"]
         self.assertEqual(self.check(models()), want)
         self.assertEqual(self.check({}), want)
+        self.assertEqual(self.check({"vertex": {"enabled": True}}),
+                         ["defaultModels.vertex: at least 1 model is required"])
+
+    def test_empty_list_uses_the_provider_default(self):
+        defaults = {"anthropic": [OK], "vertex": [{"id": "Anthropic/x", "profile": "fast"}]}
+        self.assertEqual(self.check({"models": [], "defaultModels": defaults}), [])
+        self.assertEqual(self.check({"models": [], "vertex": {"enabled": True}, "defaultModels": defaults}),
+                         ["defaultModels.vertex[0]: invalid id Anthropic/x"])
+
+    def test_customer_list_wins_over_defaults(self):
+        defaults = {"vertex": [{"id": "Anthropic/x", "profile": "fast"}]}
+        self.assertEqual(self.check({**models(OK), "vertex": {"enabled": True}, "defaultModels": defaults}), [])
 
     def test_invalid_id(self):
         self.assertEqual(self.check(models({"id": "Anthropic/x", "profile": "fast"})),
@@ -91,7 +105,8 @@ class ModelCatalogCheckTests(unittest.TestCase):
 
         self.assertEqual(run(models(OK)).returncode, 0)
         bad = run(models())
-        self.assertEqual((bad.returncode, bad.stderr), (1, "models: at least 1 model is required\n"))
+        self.assertEqual((bad.returncode, bad.stderr),
+                         (1, "defaultModels.anthropic: at least 1 model is required\n"))
 
 
 @unittest.skipUnless(TOOLS, "requires Mike Farah yq, helmfile and helm")
@@ -120,6 +135,9 @@ class ModelCatalogTests(unittest.TestCase):
 
     def test_default_list_reaches_web(self):
         self.assertEqual(self.render_web_models(""), default_models())
+
+    def test_vertex_install_gets_the_vertex_default(self):
+        self.assertEqual(self.render_web_models("\nvertex:\n  enabled: true\n"), default_models("vertex"))
 
     def test_customer_list_replaces_default(self):
         models = [{"id": "anthropic-vertex/claude-haiku-4-5@20251001", "profile": "fast"}]

@@ -16,15 +16,6 @@ The release adds the required internal Web permission during rendering while
 preserving existing tokens and identity restrictions, including custom
 `internalServiceTokens`. No manual edit of a populated secrets file is needed.
 
-## Vertex AI installations set `models`
-
-Phoenix Web now reads its allowed models from `models` in `values.yaml`. The
-default list uses `anthropic/...` IDs. If you set `vertex.enabled: true`, add a
-`models` list with `anthropic-vertex/...` IDs, using the dated ID for Vertex 4.5
-models (`anthropic-vertex/claude-haiku-4-5@20251001`). See
-[allowed models](docs/configuration.md#allowed-models) and
-`examples/values.yaml`. Customers on the direct Anthropic API need no change.
-
 ## Prepare the upgrade
 
 The supported starting point is stable 0.2.5. Earlier installations must follow

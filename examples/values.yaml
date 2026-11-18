@@ -122,16 +122,10 @@ vertex:
     sonnet: claude-sonnet-5
     haiku: claude-haiku-4-5@20251001
 
-# Models offered in the UI. A list here replaces the default list. With
-# `vertex.enabled: true`, use `anthropic-vertex/...` IDs; Claude 4.5 models need
-# the dated ID (for example claude-haiku-4-5@20251001).
+# Models offered in the UI. Leave `models` unset to get the default list for
+# your provider (it follows `vertex.enabled`). A list here replaces the default:
 # models:
-#   - {id: anthropic-vertex/claude-opus-5, profile: reasoning}
-#   - {id: anthropic-vertex/claude-opus-5-5, profile: reasoning_latest}
-#   - {id: anthropic-vertex/claude-sonnet-5, profile: standard}
 #   - {id: anthropic-vertex/claude-sonnet-5-5, profile: standard_latest}
-#   - {id: anthropic-vertex/claude-sonnet-4-6, profile: orchestration}
-#   - {id: anthropic-vertex/claude-haiku-5-5, profile: fast}
 #   - {id: anthropic-vertex/claude-haiku-4-5@20251001, profile: fast_previous}
 
 application:

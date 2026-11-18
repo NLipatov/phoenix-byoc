@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Check the models list (top-level `models`) in merged BYOC values.
+"""Check the models list that Phoenix Web gets from merged BYOC values.
+
+That is `models`, or, when it is unset or empty, `defaultModels.vertex` or
+`defaultModels.anthropic` (selected by `vertex.enabled`).
 
 Reads the merged values as JSON on stdin. Prints one line per error on stderr
 and never prints anything but the offending id, profile or key names. A value
@@ -25,16 +28,27 @@ def shown(value):
     return json.dumps(value)
 
 
+def effective(config):
+    """The list that Phoenix Web gets, and its name: `models`, or the provider default."""
+    models = config.get("models")
+    if models is not None and models != []:
+        return models, "models"
+    vertex = config.get("vertex")
+    key = "vertex" if isinstance(vertex, dict) and vertex.get("enabled") is True else "anthropic"
+    defaults = config.get("defaultModels")
+    return (defaults.get(key) if isinstance(defaults, dict) else None), f"defaultModels.{key}"
+
+
 def check(config):
-    models = config.get("models") if isinstance(config, dict) else None
+    models, name = effective(config if isinstance(config, dict) else {})
     if models is not None and not isinstance(models, list):
-        return ["models: must be a list of {id, profile}"]
+        return [f"{name}: must be a list of {{id, profile}}"]
     if not models:
-        return ["models: at least 1 model is required"]
+        return [f"{name}: at least 1 model is required"]
     errors = []
     seen = {key: set() for key in KEYS}
     for index, entry in enumerate(models):
-        where = f"models[{index}]"
+        where = f"{name}[{index}]"
         if not isinstance(entry, dict):
             errors.append(f"{where}: must be a mapping with id and profile")
             continue

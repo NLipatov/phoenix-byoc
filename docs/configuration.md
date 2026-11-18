@@ -302,18 +302,24 @@ models:
 - the list has at least one model.
 
 Phoenix Web receives this list as `web.models`. It is a Phoenix Web catalog,
-not a connection field, and it is not sent to the agents.
+not a connection field, and it is not sent to the agents. It needs the
+phoenix-web chart 0.2.7 or later; earlier charts ignore it.
 
-The default list uses `anthropic/...` IDs for the direct Anthropic API. A list
-you set in `values.yaml` replaces the default list; it is not merged with it.
-BYOC does not check the IDs against your credentials. You are responsible for
-IDs that your provider accepts.
+If you leave `models` unset (or empty), the installer uses the default list for
+your provider: `defaultModels.vertex` (`anthropic-vertex/...` IDs) when
+`vertex.enabled` is true, otherwise `defaultModels.anthropic` (`anthropic/...`
+IDs for the direct Anthropic API). A list you set in `values.yaml` replaces the
+default list; it is not merged with it. BYOC does not check the IDs against
+your credentials. You are responsible for IDs that your provider accepts.
 
-With `vertex.enabled: true`, set `models` with `anthropic-vertex/...` IDs.
-Vertex cannot run an undated 4.5 ID: use the dated ID
-(`anthropic-vertex/claude-haiku-4-5@20251001`, not
-`anthropic-vertex/claude-haiku-4-5`). `examples/values.yaml` has a full Vertex
-list.
+On Vertex, use the dated ID for Claude 4.5 models
+(`anthropic-vertex/claude-haiku-4-5@20251001`). The agents rewrite an undated
+4.5 ID to the dated one before the call, so with the dated ID the catalog shows
+the ID that goes to the provider.
+
+`profile` is a display name only. Agent versions store the `id`, so the set of
+profiles can differ by provider. For example, the Vertex default list has no
+`fast_previous_pinned`, because on Vertex it is the same ID as `fast_previous`.
 
 Changing `models` and re-running the install updates what Phoenix Web offers
 for new work. Agent versions that are already sealed keep the model they were
