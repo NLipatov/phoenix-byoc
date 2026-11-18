@@ -10,7 +10,9 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 CHARTS = os.environ.get("PHOENIX_BYOC_LOCAL_CHARTS", str(ROOT.parent / "phoenix-devops" / "charts"))
 REQUIRED_IN_CI = bool(os.environ.get("CI"))
-TOOLS = bool(shutil.which("yq") and shutil.which("helmfile"))
+# helmfile runs `helm version` before it renders anything.
+TOOLS = all(shutil.which(tool) for tool in ("yq", "helmfile", "helm"))
+PREFLIGHT_TOOLS = TOOLS and bool(shutil.which("kubectl"))
 
 
 def default_models():
@@ -35,7 +37,8 @@ class ModelCatalogCheckTests(unittest.TestCase):
 
     def test_tools_present_in_ci(self):
         if REQUIRED_IN_CI:
-            self.assertTrue(TOOLS, "CI must provide yq and helmfile; refusing to skip silently")
+            self.assertTrue(PREFLIGHT_TOOLS,
+                            "CI must provide yq, helmfile, helm and kubectl; refusing to skip silently")
 
     @unittest.skipUnless(shutil.which("yq"), "requires Mike Farah yq")
     def test_defaults_file_is_valid(self):
@@ -53,8 +56,20 @@ class ModelCatalogCheckTests(unittest.TestCase):
                          ["models[0]: invalid id Anthropic/x"])
 
     def test_trailing_newline_is_invalid(self):
-        self.assertEqual(len(self.check(models({"id": "anthropic/x\n", "profile": "fast"}))), 1)
-        self.assertEqual(len(self.check(models({"id": "anthropic/x", "profile": "fast\n"}))), 1)
+        self.assertEqual(self.check(models({"id": "anthropic/x\n", "profile": "fast"})),
+                         ['models[0]: invalid id "anthropic/x\\n"'])
+        self.assertEqual(self.check(models({"id": "anthropic/x", "profile": "fast\n"})),
+                         ['models[0]: invalid profile "fast\\n"'])
+
+    def test_non_string_and_empty_values_are_not_echoed_raw(self):
+        self.assertEqual(self.check(models({"id": {"token": "secret"}, "profile": ""})),
+                         ["models[0]: invalid id (dict)", 'models[0]: invalid profile ""'])
+        self.assertEqual(self.check(models({"id": "anthropic/x", "profile": 5})),
+                         ["models[0]: invalid profile 5"])
+
+    def test_models_that_is_not_a_list(self):
+        self.assertEqual(self.check({"models": {"id": "anthropic/x"}}),
+                         ["models: must be a list of {id, profile}"])
 
     def test_duplicates(self):
         errors = self.check(models(
@@ -79,7 +94,7 @@ class ModelCatalogCheckTests(unittest.TestCase):
         self.assertEqual((bad.returncode, bad.stderr), (1, "models: at least 1 model is required\n"))
 
 
-@unittest.skipUnless(TOOLS, "requires Mike Farah yq and helmfile")
+@unittest.skipUnless(TOOLS, "requires Mike Farah yq, helmfile and helm")
 class ModelCatalogTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -112,8 +127,7 @@ class ModelCatalogTests(unittest.TestCase):
         self.assertEqual(self.render_web_models(customer), models)
 
 
-@unittest.skipUnless(TOOLS and shutil.which("helm") and shutil.which("kubectl"),
-                     "requires yq, helmfile, helm and kubectl")
+@unittest.skipUnless(PREFLIGHT_TOOLS, "requires yq, helmfile, helm and kubectl")
 class PreflightModelCatalogTests(unittest.TestCase):
     def test_preflight_rejects_bad_models(self):
         with tempfile.TemporaryDirectory() as temp:
