@@ -369,16 +369,29 @@ has no provider logic. The default is an empty map.
 - The map needs a workflow-engine chart that supports `agentSecrets.llmEnv`.
   Earlier charts ignore it.
 
-Use the standard variable names that Pi reads. Some examples:
+Use the standard variable names that Pi reads. These platforms are
+supported through `llmEnv`:
 
 | Platform | `llmEnv` entries | `models` id prefix |
 |---|---|---|
 | OpenAI API | `OPENAI_API_KEY` | `openai/` |
 | Google AI (Gemini) | `GEMINI_API_KEY` | `google/` |
-| Azure OpenAI | `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_BASE_URL` | `azure/` |
-| AWS Bedrock (Claude) | `CLAUDE_CODE_USE_BEDROCK: "1"`, `AWS_REGION`, `AWS_BEARER_TOKEN_BEDROCK` | `amazon-bedrock/` |
+| AWS Bedrock (Claude), Bedrock API key | `CLAUDE_CODE_USE_BEDROCK: "1"`, `AWS_REGION`, `AWS_BEARER_TOKEN_BEDROCK` | `amazon-bedrock/` |
+| AWS Bedrock (Claude), static IAM keys | `CLAUDE_CODE_USE_BEDROCK: "1"`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, optional `AWS_SESSION_TOKEN` | `amazon-bedrock/` |
+| Google Vertex AI (Gemini), API key | `GOOGLE_CLOUD_API_KEY`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION` | `google-vertex/` |
+| Azure Foundry (GPT), API key | `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_BASE_URL` or `AZURE_OPENAI_RESOURCE_NAME`, optional `AZURE_OPENAI_API_VERSION` and `AZURE_OPENAI_DEPLOYMENT_NAME_MAP` | `azure/` |
+| Azure Foundry (Claude), API key | The gateway variables, with `LLM_GATEWAY_BASE_URL: "https://<resource>.services.ai.azure.com/anthropic"` and `LLM_GATEWAY_API: "anthropic-messages"`. Not tested yet. | `gateway/` |
+| Customer gateway (Portkey, LiteLLM, Kong and others) | The gateway variables below | `gateway/` |
+| OSS server (vLLM, TGI, Ollama on HTTPS) | The gateway variables below | `gateway/` |
+| Hosted OSS models in Pi | One of `GROQ_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `HF_TOKEN`, `DEEPSEEK_API_KEY`, `MISTRAL_API_KEY`, `CEREBRAS_API_KEY`, `NVIDIA_API_KEY`, `XAI_API_KEY`, and `PHOENIX_LLM_PROVIDER: "<pi id>"` | `<pi id>/` |
 | OpenRouter | `OPENROUTER_API_KEY`, `PHOENIX_LLM_PROVIDER: "openrouter"` | `openrouter/` |
-| Your gateway (Portkey, LiteLLM, Kong and others) | the gateway variables below | `gateway/` |
+| Vercel AI Gateway | `AI_GATEWAY_API_KEY`, `PHOENIX_LLM_PROVIDER` | `vercel-ai-gateway/` |
+| Cloudflare AI Gateway | `CLOUDFLARE_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_GATEWAY_ID`, `PHOENIX_LLM_PROVIDER` | `cloudflare-ai-gateway/` |
+
+`PHOENIX_LLM_PROVIDER` is the Pi provider for a model id that has no prefix.
+
+Bedrock through IRSA or EKS Pod Identity, and Gemini on Vertex AI through
+Workload Identity, need a sandbox identity. That is not available yet.
 
 Set each variable in one place only. Do not set a variable both in `llmEnv`
 and in a field such as `openaiApiKey`.
@@ -390,10 +403,14 @@ model provider. Pi uses the provider id `gateway` for it.
 
 | Variable | Required | Value |
 |---|---|---|
-| `LLM_GATEWAY_BASE_URL` | Yes | The gateway URL. Use HTTPS. |
+| `LLM_GATEWAY_BASE_URL` | Yes | The gateway URL. Use HTTPS, or HTTP to loopback. No user info in the URL. |
 | `LLM_GATEWAY_API_KEY` | Yes | The gateway key. It is a secret. |
 | `LLM_GATEWAY_API` | Yes | The wire API of the gateway endpoint: `openai-completions`, `openai-responses` or `anthropic-messages`. There is no default. |
-| `LLM_GATEWAY_HEADERS` | No | Extra headers, one `Name: value` per line. A value can be a whole `$NAME` reference to another variable. |
+| `LLM_GATEWAY_HEADERS` | No | Extra headers, one `Name: value` per line. A value can be a whole `$NAME` reference to another variable. A value that starts with `!` is refused. |
+
+The base URL depends on the API. Example for Portkey:
+`https://api.portkey.ai/v1` for `openai-completions`, and
+`https://api.portkey.ai` (no `/v1`) for `anthropic-messages`.
 
 Example: Portkey with Claude behind it.
 
@@ -424,13 +441,15 @@ A model id in `models` is `gateway/<id the gateway accepts>`.
   prefix from the first table. See [Allowed models](#allowed-models).
 - **Set `LLM_GATEWAY_API`.** A gateway does not work without it.
 - **Quote values.** Quote every value in YAML, for example
-  `LLM_GATEWAY_API: "openai-completions"`. An unquoted number or boolean fails
-  the render with a schema error. Unquoted, a number of 1,000,000 or more
-  becomes `1e+06`, and `N`, `Y`, `yes`, `no`, `on` and `off` become booleans.
-  This also applies to keys, so quote a key with such a name.
+  `LLM_GATEWAY_API: "openai-completions"`. The chart refuses an unquoted
+  number or boolean with a schema error. The reason: unquoted, YAML reads a
+  number of 1,000,000 or more as `1e+06`, and `N`, `Y`, `yes`, `no`, `on` and
+  `off` as booleans. Quote a key with one of those names too.
 - **No proxy or CA variables.** `llmEnv` ignores `HTTP_PROXY`, `HTTPS_PROXY`,
   `NO_PROXY`, `NODE_EXTRA_CA_CERTS` and `SSL_CERT_FILE`. Set them in the image
   or in the pod environment.
+- **No Phoenix variables.** `llmEnv` ignores `PHOENIX_*` names, except
+  `PHOENIX_LLM_PROVIDER`.
 - **The judge uses Claude.** The done-when judge uses a Claude model. If your
   gateway has no Claude model, the run logs a `judge.error` event. The run
   still completes.

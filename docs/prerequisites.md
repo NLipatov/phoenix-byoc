@@ -75,7 +75,7 @@ Cluster workloads require access to:
 - public GHCR and any referenced upstream image registries;
 - the bundled PostgreSQL service, or the configured external PostgreSQL endpoint;
 - the customer Redis endpoint when external Redis is selected;
-- Git and model-provider endpoints required by enabled workflows.
+- Git and model-provider endpoints required by enabled workflows;
 - sandbox egress to the LLM gateway host or provider endpoints that
   `secrets.agents.llmEnv` names.
 

@@ -13,6 +13,8 @@ CHARTS = os.environ.get("PHOENIX_BYOC_LOCAL_CHARTS", str(ROOT.parent / "phoenix-
 REQUIRED_IN_CI = bool(os.environ.get("CI"))
 # helmfile runs `helm version` before it renders anything.
 TOOLS = all(shutil.which(tool) for tool in ("yq", "helmfile", "helm"))
+# `helmfile template` needs the DevOps chart. The CI job checks out only BYOC.
+ENGINE_CHART = Path(CHARTS, "phoenix-workflow-engine").is_dir()
 
 # Values that a careless `toYaml | nindent` would change: a multi-line string
 # with `$` and `@`, and a quoted number.
@@ -20,6 +22,7 @@ STRESS_ENV = {
     "LLM_GATEWAY_HEADERS": "x-portkey-api-key: $LLM_GATEWAY_API_KEY\nx-portkey-provider: @bedrock-prod",
     "AWS_MAX_ATTEMPTS": "1",
 }
+STRESS_EXPECTED = {"LLM_GATEWAY_API": "anthropic-messages", **STRESS_ENV}
 
 
 class LlmEnvCheckTests(unittest.TestCase):
@@ -57,20 +60,23 @@ class LlmEnvRenderTests(unittest.TestCase):
                     PHOENIX_BYOC_NAMESPACE="phoenix-llm-env-test",
                     HELMFILE_CACHE_HOME=os.environ.get("HELMFILE_CACHE_HOME", str(ROOT / ".tmp/helmfile-cache")))
 
+    def helmfile(self, args, values_fixture, secrets):
+        result = subprocess.run(["helmfile", "--selector", "name=phoenix-workflow-engine", *args],
+                                cwd=ROOT, env=self.env(values_fixture, secrets), capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, f"helmfile {args[0]} failed:\n{result.stderr}")
+        return result.stdout
+
     def render_llm_env(self, secrets, values_fixture="values.yaml"):
-        subprocess.run(
-            ["helmfile", "--selector", "name=phoenix-workflow-engine", "write-values", "--skip-deps",
-             "--output-file-template", str(self.directory / "{{ .Release.Name }}.yaml")],
-            cwd=ROOT, env=self.env(values_fixture, secrets), check=True, capture_output=True, text=True)
+        self.helmfile(["write-values", "--skip-deps",
+                       "--output-file-template", str(self.directory / "{{ .Release.Name }}.yaml")],
+                      values_fixture, secrets)
         rendered = subprocess.check_output(
             ["yq", "-o=json", ".agentSecrets.llmEnv", str(self.directory / "phoenix-workflow-engine.yaml")],
             text=True)
         return json.loads(rendered)
 
     def render_engine_secret(self, secrets, values_fixture="values.yaml"):
-        manifests = subprocess.run(
-            ["helmfile", "--selector", "name=phoenix-workflow-engine", "template", "--skip-deps", "--quiet"],
-            cwd=ROOT, env=self.env(values_fixture, secrets), check=True, capture_output=True, text=True).stdout
+        manifests = self.helmfile(["template", "--skip-deps", "--quiet"], values_fixture, secrets)
         path = self.directory / "engine.yaml"
         path.write_text(manifests)
         data = subprocess.check_output(
@@ -82,13 +88,18 @@ class LlmEnvRenderTests(unittest.TestCase):
         secrets = self.secrets_copy("values.secrets.yaml", "del(.secrets.agents.llmEnv)")
         self.assertEqual(self.render_llm_env(secrets), {})
 
+    def stress_secrets(self):
+        return self.secrets_copy("values.secrets.yaml", f".secrets.agents.llmEnv += {json.dumps(STRESS_ENV)}")
+
     def test_entries_pass_through_unchanged(self):
-        secrets = self.secrets_copy("values.secrets.yaml",
-                                    f".secrets.agents.llmEnv += {json.dumps(STRESS_ENV)}")
-        expected = {"LLM_GATEWAY_API": "anthropic-messages", **STRESS_ENV}
-        self.assertEqual(self.render_llm_env(secrets), expected)
-        secret = self.render_engine_secret(secrets)
-        for name, value in expected.items():
+        self.assertEqual(self.render_llm_env(self.stress_secrets()), STRESS_EXPECTED)
+
+    def test_entries_reach_the_engine_secret(self):
+        if not ENGINE_CHART:
+            self.skipTest(f"needs the DevOps phoenix-workflow-engine chart in {CHARTS}; "
+                          "set PHOENIX_BYOC_LOCAL_CHARTS")
+        secret = self.render_engine_secret(self.stress_secrets())
+        for name, value in STRESS_EXPECTED.items():
             self.assertEqual(secret[f"PHOENIX_LLM_ENV__{name}"], value)
 
     def test_external_secrets_mode_passes_through(self):
