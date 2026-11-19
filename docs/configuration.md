@@ -282,6 +282,50 @@ For an unauthenticated SMTP relay, set `deliveryMethod: smtp`, configure
 `smtp.authentication` and `secrets.application.smtpPassword` empty. The
 application then connects to the relay without starting SMTP authentication.
 
+## Allowed models
+
+`models` is the list of models that Phoenix Web offers to agents. Each entry has
+an `id` and a `profile`:
+
+```yaml
+models:
+  - id: anthropic/claude-sonnet-5-5
+    profile: standard_latest
+```
+
+- `id` is `<provider>/<model>` (for example `anthropic/...` or
+  `anthropic-vertex/...`) and must be unique. The provider is lowercase
+  (letters, digits, `_` and `-`, starting with a letter or digit, at most 64
+  characters), and the model is 1 to 255 printable ASCII characters with no
+  spaces;
+- `profile` is a lowercase name of up to 64 characters (letters, digits and
+  `_`, starting with a letter) and must be unique;
+- the list has at least one model.
+
+Phoenix Web receives this list as `web.models`. It is a Phoenix Web catalog,
+not a connection field, and it is not sent to the agents. It needs the
+phoenix-web chart 0.2.7 or later; earlier charts ignore it.
+
+If you leave `models` unset (or empty), the installer uses the default list for
+your provider: `defaultModels.vertex` (`anthropic-vertex/...` IDs) when
+`vertex.enabled` is true, otherwise `defaultModels.anthropic` (`anthropic/...`
+IDs for the direct Anthropic API). Both default lists hold the current models:
+Opus 5.5, Sonnet 5.5 and Haiku 5.5. A list you set in `values.yaml` replaces the
+default list; it is not merged with it. BYOC does not check the IDs against
+your credentials. You are responsible for IDs that your provider accepts.
+
+On Vertex, use the dated ID for Claude 4.5 models
+(`anthropic-vertex/claude-haiku-4-5@20251001`). The agents rewrite an undated
+4.5 ID to the dated one before the call, so with the dated ID the catalog shows
+the ID that goes to the provider.
+
+`profile` is a display name only. Agent versions store the `id`, so the set of
+profiles can differ by provider.
+
+Changing `models` and re-running the install updates what Phoenix Web offers
+for new work. Agent versions that are already sealed keep the model they were
+sealed with; changing `models` does not change them.
+
 ## Claude Code through Google Vertex AI
 
 `vertex.enabled` optionally routes sandboxed Claude Code agents through Google

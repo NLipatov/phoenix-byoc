@@ -146,6 +146,24 @@ vertex:
     sonnet: claude-sonnet-5
     haiku: claude-haiku-4-5@20251001
 
+# Models that Phoenix Web offers to agents: a list of {id, profile}.
+# id is "<provider>/<model>" and must be an ID that your provider accepts;
+# profile is a lowercase name, unique in the list. Leave models empty to use the
+# default list for your provider: defaultModels.vertex when vertex.enabled is
+# true, otherwise defaultModels.anthropic. A list you set replaces the default.
+# Needs the phoenix-web chart 0.2.7 or later; earlier charts ignore it.
+models: []
+defaultModels:
+  # The current models only. Fable 5.2 joins when the agents support it.
+  vertex:
+    - {id: anthropic-vertex/claude-opus-5-5, profile: reasoning_latest}
+    - {id: anthropic-vertex/claude-sonnet-5-5, profile: standard_latest}
+    - {id: anthropic-vertex/claude-haiku-5-5, profile: fast}
+  anthropic:
+    - {id: anthropic/claude-opus-5-5, profile: reasoning_latest}
+    - {id: anthropic/claude-sonnet-5-5, profile: standard_latest}
+    - {id: anthropic/claude-haiku-5-5, profile: fast}
+
 application:
   tenantId: phoenix
   appHost: phoenix.example.com
