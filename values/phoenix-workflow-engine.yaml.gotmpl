@@ -257,6 +257,7 @@ agentSecrets:
   githubToken: {{ .Values.secrets.agents.githubToken | quote }}
   openaiApiKey: {{ .Values.secrets.agents.openaiApiKey | quote }}
   geminiApiKey: {{ .Values.secrets.agents.geminiApiKey | quote }}
+  llmEnv: {{ .Values.secrets.agents.llmEnv | default dict | toYaml | nindent 4 }}
 
 ingress:
   api:

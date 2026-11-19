@@ -355,6 +355,88 @@ When `vertex.enabled=true`, the workflow-engine chart deliberately omits
 Those two fields in `values.secrets.yaml` may remain empty. Other provider and
 Git credentials remain independent.
 
+## LLM providers through environment variables
+
+`secrets.agents.llmEnv` is a map of environment variables for the LLM
+provider. Put it in `values.secrets.yaml`. BYOC passes the map unchanged to the
+workflow-engine chart as `agentSecrets.llmEnv`. The chart stores each entry in
+the Workflow Engine Secret, and the engine gives it to sandboxed agents. BYOC
+has no provider logic. The default is an empty map.
+
+- A name matches `^[A-Za-z_][A-Za-z0-9_]*$`.
+- A value must be a quoted string, for example `SOME_FLAG: "true"`. The
+  chart refuses numbers and booleans. Blank values are skipped.
+- The map needs a workflow-engine chart that supports `agentSecrets.llmEnv`.
+  Earlier charts ignore it.
+
+Use the standard variable names that Pi reads. Some examples:
+
+| Platform | `llmEnv` entries | `models` id prefix |
+|---|---|---|
+| OpenAI API | `OPENAI_API_KEY` | `openai/` |
+| Google AI (Gemini) | `GEMINI_API_KEY` | `google/` |
+| Azure OpenAI | `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_BASE_URL` | `azure/` |
+| AWS Bedrock (Claude) | `CLAUDE_CODE_USE_BEDROCK: "1"`, `AWS_REGION`, `AWS_BEARER_TOKEN_BEDROCK` | `amazon-bedrock/` |
+| OpenRouter | `OPENROUTER_API_KEY`, `PHOENIX_LLM_PROVIDER: "openrouter"` | `openrouter/` |
+| Your gateway (Portkey, LiteLLM, Kong and others) | the gateway variables below | `gateway/` |
+
+Set each variable in one place only. Do not set a variable both in `llmEnv`
+and in a field such as `openaiApiKey`.
+
+### Customer gateway
+
+A gateway is a URL, a key and optional headers. The gateway picks the backend
+model provider. Pi uses the provider id `gateway` for it.
+
+| Variable | Required | Value |
+|---|---|---|
+| `LLM_GATEWAY_BASE_URL` | Yes | The gateway URL. Use HTTPS. |
+| `LLM_GATEWAY_API_KEY` | Yes | The gateway key. It is a secret. |
+| `LLM_GATEWAY_API` | Yes | The wire API of the gateway endpoint: `openai-completions`, `openai-responses` or `anthropic-messages`. There is no default. |
+| `LLM_GATEWAY_HEADERS` | No | Extra headers, one `Name: value` per line. A value can be a whole `$NAME` reference to another variable. |
+
+Example: Portkey with Claude behind it.
+
+```yaml
+# values.secrets.yaml
+secrets:
+  agents:
+    llmEnv:
+      LLM_GATEWAY_BASE_URL: "https://api.portkey.ai"
+      LLM_GATEWAY_API: "anthropic-messages"
+      LLM_GATEWAY_API_KEY: "<your Portkey API key>"
+      LLM_GATEWAY_HEADERS: "x-portkey-api-key: $LLM_GATEWAY_API_KEY\nx-portkey-provider: @bedrock-prod"
+```
+
+```yaml
+# values.yaml
+models:
+  - id: "gateway/us.anthropic.claude-sonnet-5-v1:0"
+    profile: standard
+```
+
+A model id in `models` is `gateway/<id the gateway accepts>`.
+
+### Rules
+
+- **Set `models`.** The default model list has `anthropic/...` ids. With a
+  gateway, set `models` with `gateway/...` ids. With another platform, use the
+  prefix from the first table. See [Allowed models](#allowed-models).
+- **Set `LLM_GATEWAY_API`.** A gateway does not work without it.
+- **Quote values.** Quote every value in YAML, for example
+  `LLM_GATEWAY_API: "openai-completions"`. An unquoted number or boolean fails
+  the render with a schema error. Unquoted, a number of 1,000,000 or more
+  becomes `1e+06`, and `N`, `Y`, `yes`, `no`, `on` and `off` become booleans.
+  This also applies to keys, so quote a key with such a name.
+- **No proxy or CA variables.** `llmEnv` ignores `HTTP_PROXY`, `HTTPS_PROXY`,
+  `NO_PROXY`, `NODE_EXTRA_CA_CERTS` and `SSL_CERT_FILE`. Set them in the image
+  or in the pod environment.
+- **The judge uses Claude.** The done-when judge uses a Claude model. If your
+  gateway has no Claude model, the run logs a `judge.error` event. The run
+  still completes.
+- **Allow egress.** Sandboxes need network access to the gateway host or the
+  provider endpoints. See [Prerequisites](prerequisites.md#network).
+
 ## Workflow execution limits
 
 The customer-facing workflow settings are under `services.workflowEngine` and
