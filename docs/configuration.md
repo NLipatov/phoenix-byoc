@@ -385,8 +385,8 @@ supported through `llmEnv`:
 | OSS server (vLLM, TGI, Ollama on HTTPS) | The gateway variables below | `gateway/` |
 | Hosted OSS models in Pi | One of `GROQ_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `HF_TOKEN`, `DEEPSEEK_API_KEY`, `MISTRAL_API_KEY`, `CEREBRAS_API_KEY`, `NVIDIA_API_KEY`, `XAI_API_KEY`, and `PHOENIX_LLM_PROVIDER: "<pi id>"` | `<pi id>/` |
 | OpenRouter | `OPENROUTER_API_KEY`, `PHOENIX_LLM_PROVIDER: "openrouter"` | `openrouter/` |
-| Vercel AI Gateway | `AI_GATEWAY_API_KEY`, `PHOENIX_LLM_PROVIDER` | `vercel-ai-gateway/` |
-| Cloudflare AI Gateway | `CLOUDFLARE_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_GATEWAY_ID`, `PHOENIX_LLM_PROVIDER` | `cloudflare-ai-gateway/` |
+| Vercel AI Gateway | `AI_GATEWAY_API_KEY`, `PHOENIX_LLM_PROVIDER: "vercel-ai-gateway"` | `vercel-ai-gateway/` |
+| Cloudflare AI Gateway | `CLOUDFLARE_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_GATEWAY_ID`, `PHOENIX_LLM_PROVIDER: "cloudflare-ai-gateway"` | `cloudflare-ai-gateway/` |
 
 `PHOENIX_LLM_PROVIDER` is the Pi provider for a model id that has no prefix.
 
@@ -403,7 +403,7 @@ model provider. Pi uses the provider id `gateway` for it.
 
 | Variable | Required | Value |
 |---|---|---|
-| `LLM_GATEWAY_BASE_URL` | Yes | The gateway URL. Use HTTPS, or HTTP to loopback or to an in-cluster service host ending in `.svc` or `.svc.cluster.local`. No user info in the URL. |
+| `LLM_GATEWAY_BASE_URL` | Yes | The gateway URL. Use HTTPS, or HTTP to loopback or to an in-cluster service host `<service>.<namespace>.svc` or `<service>.<namespace>.svc.cluster.local` (for example `http://portkey.llm.svc:8787/v1`). No user info in the URL. |
 | `LLM_GATEWAY_API_KEY` | Yes | The gateway key. It is a secret. |
 | `LLM_GATEWAY_API` | Yes | The wire API of the gateway endpoint: `openai-completions`, `openai-responses` or `anthropic-messages`. There is no default. |
 | `LLM_GATEWAY_HEADERS` | No | Extra headers, one `Name: value` per line. A value can be a whole `$NAME` reference to another variable. A value that starts with `!` is refused. |
