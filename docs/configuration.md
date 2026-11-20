@@ -465,11 +465,10 @@ A model id in `models` is `gateway/<id the gateway accepts>`.
 - **The judge uses Claude.** This applies to every row of the provider
   table. The done-when judge uses a Claude model id without a prefix (Sonnet
   5.5). It runs on the provider set by `PHOENIX_LLM_PROVIDER`, or else on the
-  provider the agents detect from the credentials (Anthropic, Claude on
-  Vertex, Bedrock or the gateway; a gateway must accept that id). Google AI,
-  Vertex Gemini, Azure (GPT), OpenRouter, Vercel, Cloudflare and the hosted OSS
-  providers do not serve it under that id. Without a provider that runs it,
-  the run logs a `judge.error` event and still completes.
+  provider the agents detect from the credentials. Only Anthropic, Claude on
+  Vertex, Bedrock, or a gateway that accepts that id can run it. With any
+  other provider, or with none, the run logs a `judge.error` event and still
+  completes.
 - **Allow egress.** Sandboxes need network access to the gateway host or the
   provider endpoints. See [Prerequisites](prerequisites.md#network).
 
