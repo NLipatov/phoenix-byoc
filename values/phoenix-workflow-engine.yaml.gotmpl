@@ -5,6 +5,16 @@
 {{- if and .Values.services.opensandbox.fuse.enabled (not (semverCompare ">=0.2.6" .Values.versions.phoenixWorkflowEngine)) }}
 {{- fail "AgentFS requires phoenixWorkflowEngine chart >=0.2.6; update the release pins first" }}
 {{- end }}
+{{- $llmEnv := .Values.secrets.agents.llmEnv | default dict }}
+{{- if not (kindIs "map" $llmEnv) }}
+{{- fail "secrets.agents.llmEnv must be a map of NAME: \"value\" entries" }}
+{{- end }}
+{{- range $name, $value := $llmEnv }}
+{{- /* An unquoted date, number or boolean would reach the Secret changed; the value is never shown. */}}
+{{- if not (kindIs "string" $value) }}
+{{- fail (printf "secrets.agents.llmEnv.%s must be a string: quote its value in values.secrets.yaml" $name) }}
+{{- end }}
+{{- end }}
 {{- $engineTag := .Values.images.phoenixWorkflowEngine.tag }}
 {{- with (.Values.images.phoenixWorkflowEngine | get "digest" "") }}
 {{- $engineTag = printf "%s@%s" $engineTag . }}
@@ -257,7 +267,7 @@ agentSecrets:
   githubToken: {{ .Values.secrets.agents.githubToken | quote }}
   openaiApiKey: {{ .Values.secrets.agents.openaiApiKey | quote }}
   geminiApiKey: {{ .Values.secrets.agents.geminiApiKey | quote }}
-  llmEnv: {{ .Values.secrets.agents.llmEnv | default dict | toYaml | nindent 4 }}
+  llmEnv: {{ $llmEnv | toYaml | nindent 4 }}
 
 ingress:
   api:

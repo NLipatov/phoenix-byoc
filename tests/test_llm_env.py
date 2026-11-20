@@ -60,16 +60,29 @@ class LlmEnvRenderTests(unittest.TestCase):
                     PHOENIX_BYOC_NAMESPACE="phoenix-llm-env-test",
                     HELMFILE_CACHE_HOME=os.environ.get("HELMFILE_CACHE_HOME", str(ROOT / ".tmp/helmfile-cache")))
 
+    def secrets_with_raw_entries(self, lines):
+        """The fixture with `lines` (raw YAML, so unquoted scalars keep their YAML type) in llmEnv."""
+        secrets = self.directory / "values.secrets.yaml"
+        text = (ROOT / "tests/fixtures/values.secrets.yaml").read_text()
+        entries = "".join(f"      {line}\n" for line in lines)
+        secrets.write_text(text.replace("    llmEnv:\n", f"    llmEnv:\n{entries}", 1))
+        return secrets
+
+    def run_helmfile(self, args, values_fixture, secrets):
+        return subprocess.run(["helmfile", "--selector", "name=phoenix-workflow-engine", *args],
+                              cwd=ROOT, env=self.env(values_fixture, secrets), capture_output=True, text=True)
+
     def helmfile(self, args, values_fixture, secrets):
-        result = subprocess.run(["helmfile", "--selector", "name=phoenix-workflow-engine", *args],
-                                cwd=ROOT, env=self.env(values_fixture, secrets), capture_output=True, text=True)
+        result = self.run_helmfile(args, values_fixture, secrets)
         self.assertEqual(result.returncode, 0, f"helmfile {args[0]} failed:\n{result.stderr}")
         return result.stdout
 
+    def write_values_args(self):
+        return ["write-values", "--skip-deps",
+                "--output-file-template", str(self.directory / "{{ .Release.Name }}.yaml")]
+
     def render_llm_env(self, secrets, values_fixture="values.yaml"):
-        self.helmfile(["write-values", "--skip-deps",
-                       "--output-file-template", str(self.directory / "{{ .Release.Name }}.yaml")],
-                      values_fixture, secrets)
+        self.helmfile(self.write_values_args(), values_fixture, secrets)
         rendered = subprocess.check_output(
             ["yq", "-o=json", ".agentSecrets.llmEnv", str(self.directory / "phoenix-workflow-engine.yaml")],
             text=True)
@@ -94,13 +107,47 @@ class LlmEnvRenderTests(unittest.TestCase):
     def test_entries_pass_through_unchanged(self):
         self.assertEqual(self.render_llm_env(self.stress_secrets()), STRESS_EXPECTED)
 
+    def test_unquoted_non_string_values_fail_naming_the_key(self):
+        cases = {
+            "AZURE_OPENAI_API_VERSION": "2024-10-21",
+            "AWS_MAX_ATTEMPTS": "31337",
+            "SENTINEL_FLAG": "true",
+            "SENTINEL_EMPTY": "",
+        }
+        for name, raw in cases.items():
+            with self.subTest(name=name):
+                secrets = self.secrets_with_raw_entries([f"{name}: {raw}"])
+                tag = subprocess.check_output(["yq", f".secrets.agents.llmEnv.{name} | tag", str(secrets)],
+                                              text=True).strip()
+                self.assertNotEqual(tag, "!!str", f"fixture must hold an unquoted {name}")
+                result = self.run_helmfile(self.write_values_args(), "values.yaml", secrets)
+                self.assertNotEqual(result.returncode, 0, f"{name}: {raw} was accepted")
+                self.assertIn(f"secrets.agents.llmEnv.{name}", result.stderr)
+                self.assertIn("quote", result.stderr)
+                if raw:
+                    self.assertNotIn(raw, result.stderr)
+                self.assertNotIn("2024-10-21T00:00:00Z", result.stderr)
+
+    def test_quoted_values_pass_unchanged(self):
+        quoted = {"AZURE_OPENAI_API_VERSION": "2024-10-21", "AWS_MAX_ATTEMPTS": "1", "SENTINEL_FLAG": "true"}
+        secrets = self.secrets_with_raw_entries([f'{name}: "{value}"' for name, value in quoted.items()])
+        self.assertEqual(self.render_llm_env(secrets), {"LLM_GATEWAY_API": "anthropic-messages", **quoted})
+
     def test_entries_reach_the_engine_secret(self):
         if not ENGINE_CHART:
             self.skipTest(f"needs the DevOps phoenix-workflow-engine chart in {CHARTS}; "
                           "set PHOENIX_BYOC_LOCAL_CHARTS")
+        chart_values = Path(CHARTS, "phoenix-workflow-engine", "values.yaml")
+        supported = subprocess.run(["yq", "-e", '.agentSecrets | has("llmEnv")', str(chart_values)],
+                                   capture_output=True, text=True)
+        if supported.returncode != 0:
+            self.skipTest(f"the DevOps chart {chart_values.parent} has no agentSecrets.llmEnv "
+                          "(it predates llmEnv); point PHOENIX_BYOC_LOCAL_CHARTS at a chart that has it")
         secret = self.render_engine_secret(self.stress_secrets())
         for name, value in STRESS_EXPECTED.items():
-            self.assertEqual(secret[f"PHOENIX_LLM_ENV__{name}"], value)
+            key = f"PHOENIX_LLM_ENV__{name}"
+            self.assertIn(key, secret, f"the engine Secret from {chart_values.parent} has no {key}")
+            self.assertEqual(secret[key], value)
 
     def test_external_secrets_mode_passes_through(self):
         secrets = self.secrets_copy("values.secrets-external.yaml")

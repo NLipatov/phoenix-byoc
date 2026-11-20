@@ -364,8 +364,10 @@ the Workflow Engine Secret, and the engine gives it to sandboxed agents. BYOC
 has no provider logic. The default is an empty map.
 
 - A name matches `^[A-Za-z_][A-Za-z0-9_]*$`.
-- A value must be a quoted string, for example `SOME_FLAG: "true"`. The
-  chart refuses numbers and booleans. Blank values are skipped.
+- A value must be a quoted string, for example `SOME_FLAG: "true"`. BYOC
+  refuses an unquoted date, number, boolean or empty value before it renders
+  the chart; the error names the key, never the value. Blank strings (`""`)
+  are skipped.
 - The map needs a workflow-engine chart that supports `agentSecrets.llmEnv`.
   Earlier charts ignore it.
 
@@ -383,12 +385,15 @@ supported through `llmEnv`:
 | Azure Foundry (Claude), API key | The gateway variables, with `LLM_GATEWAY_BASE_URL: "https://<resource>.services.ai.azure.com/anthropic"` and `LLM_GATEWAY_API: "anthropic-messages"`. Not tested yet. | `gateway/` |
 | Customer gateway (Portkey, LiteLLM, Kong and others) | The gateway variables below | `gateway/` |
 | OSS server (vLLM, TGI, Ollama on HTTPS) | The gateway variables below | `gateway/` |
-| Hosted OSS models in Pi | One of `GROQ_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `HF_TOKEN`, `DEEPSEEK_API_KEY`, `MISTRAL_API_KEY`, `CEREBRAS_API_KEY`, `NVIDIA_API_KEY`, `XAI_API_KEY`, and `PHOENIX_LLM_PROVIDER: "<pi id>"` | `<pi id>/` |
-| OpenRouter | `OPENROUTER_API_KEY`, `PHOENIX_LLM_PROVIDER: "openrouter"` | `openrouter/` |
-| Vercel AI Gateway | `AI_GATEWAY_API_KEY`, `PHOENIX_LLM_PROVIDER: "vercel-ai-gateway"` | `vercel-ai-gateway/` |
-| Cloudflare AI Gateway | `CLOUDFLARE_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_GATEWAY_ID`, `PHOENIX_LLM_PROVIDER: "cloudflare-ai-gateway"` | `cloudflare-ai-gateway/` |
+| Hosted OSS models in Pi | One of `GROQ_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `HF_TOKEN`, `DEEPSEEK_API_KEY`, `MISTRAL_API_KEY`, `CEREBRAS_API_KEY`, `NVIDIA_API_KEY`, `XAI_API_KEY` | `<pi id>/`, for example `groq/` |
+| OpenRouter | `OPENROUTER_API_KEY` | `openrouter/` |
+| Vercel AI Gateway | `AI_GATEWAY_API_KEY` | `vercel-ai-gateway/` |
+| Cloudflare AI Gateway | `CLOUDFLARE_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_GATEWAY_ID` | `cloudflare-ai-gateway/` |
 
-`PHOENIX_LLM_PROVIDER` is the Pi provider for a model id that has no prefix.
+The `models` id prefix picks the provider in every row, so no row needs
+`PHOENIX_LLM_PROVIDER`. That variable only sets the Pi provider for a model id
+that has no prefix. BYOC `models` ids always have one; the done-when judge's id
+does not (see the judge rule below).
 
 Bedrock through IRSA or EKS Pod Identity, and Gemini on Vertex AI through
 Workload Identity, need a sandbox identity. That is not available yet.
@@ -421,7 +426,7 @@ secrets:
     llmEnv:
       LLM_GATEWAY_BASE_URL: "https://api.portkey.ai"
       LLM_GATEWAY_API: "anthropic-messages"
-      LLM_GATEWAY_API_KEY: "<your Portkey API key>"
+      LLM_GATEWAY_API_KEY: "CHANGE_ME_LLM_GATEWAY_API_KEY"
       LLM_GATEWAY_HEADERS: "x-portkey-api-key: $LLM_GATEWAY_API_KEY\nx-portkey-provider: @bedrock-prod"
 ```
 
@@ -441,21 +446,30 @@ A model id in `models` is `gateway/<id the gateway accepts>`.
   prefix from the first table. See [Allowed models](#allowed-models).
 - **Set `LLM_GATEWAY_API`.** A gateway does not work without it.
 - **Quote values.** Quote every value in YAML, for example
-  `LLM_GATEWAY_API: "openai-completions"`. The chart refuses an unquoted
-  number or boolean with a schema error. The reason: unquoted, YAML reads a
-  number of 1,000,000 or more as `1e+06`, and `N`, `Y`, `yes`, `no`, `on` and
-  `off` as booleans. Quote a key with one of those names too.
-- **No proxy or CA variables.** `llmEnv` ignores `HTTP_PROXY`, `HTTPS_PROXY`,
-  `NO_PROXY`, `NODE_EXTRA_CA_CERTS` and `SSL_CERT_FILE`. Set them in the image
-  or in the pod environment.
+  `LLM_GATEWAY_API: "openai-completions"` or
+  `AZURE_OPENAI_API_VERSION: "2024-10-21"`. BYOC refuses an unquoted date,
+  number, boolean or empty value with an error that names the key. The reason:
+  unquoted, YAML reads `2024-10-21` as a date (it would reach the agents as
+  `2024-10-21T00:00:00Z`), a number of 1,000,000 or more as `1e+06`, and `N`,
+  `Y`, `yes`, `no`, `on` and `off` as booleans. Quote a key with one of those
+  names too.
+- **No proxy, CA or Node variables.** `llmEnv` ignores `HTTP_PROXY`,
+  `HTTPS_PROXY`, `NO_PROXY`, `http_proxy`, `https_proxy`, `no_proxy`,
+  `NODE_EXTRA_CA_CERTS`, `NODE_OPTIONS` and `SSL_CERT_FILE`, because Node reads
+  them only at start. Set them in the image or in the pod environment.
 - **No Phoenix variables.** `llmEnv` ignores `PHOENIX_*` names, except
   `PHOENIX_LLM_PROVIDER`.
 - **Changes apply to new steps.** A removed entry still applies to a step that
   paused before the change and resumes in the same sandbox after it. New
   steps use the new values.
-- **The judge uses Claude.** The done-when judge uses a Claude model. If your
-  gateway has no Claude model, the run logs a `judge.error` event. The run
-  still completes.
+- **The judge uses Claude.** This applies to every row of the provider
+  table. The done-when judge uses a Claude model id without a prefix (Sonnet
+  5.5). It runs on the provider set by `PHOENIX_LLM_PROVIDER`, or else on the
+  provider the agents detect from the credentials (Anthropic, Claude on
+  Vertex, Bedrock or the gateway; a gateway must accept that id). Google AI,
+  Vertex Gemini, Azure (GPT), OpenRouter, Vercel, Cloudflare and the hosted OSS
+  providers do not serve it under that id. Without a provider that runs it,
+  the run logs a `judge.error` event and still completes.
 - **Allow egress.** Sandboxes need network access to the gateway host or the
   provider endpoints. See [Prerequisites](prerequisites.md#network).
 
