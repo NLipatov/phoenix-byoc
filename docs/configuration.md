@@ -450,6 +450,9 @@ A model id in `models` is `gateway/<id the gateway accepts>`.
   or in the pod environment.
 - **No Phoenix variables.** `llmEnv` ignores `PHOENIX_*` names, except
   `PHOENIX_LLM_PROVIDER`.
+- **Changes apply to new steps.** A removed entry still applies to a step that
+  paused before the change and resumes in the same sandbox after it. New
+  steps use the new values.
 - **The judge uses Claude.** The done-when judge uses a Claude model. If your
   gateway has no Claude model, the run logs a `judge.error` event. The run
   still completes.
