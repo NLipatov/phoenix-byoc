@@ -26,3 +26,4 @@ jobs:
           tar -xzf "$RUNNER_TEMP/helmfile.tar.gz" -C "$RUNNER_TEMP" helmfile
       - run: python3 -m unittest discover -s tests -p 'test_evals.py' -v
       - run: python3 -m unittest discover -s tests -p 'test_model_catalog.py' -v
+      - run: python3 -m unittest discover -s tests -p 'test_llm_env.py' -v

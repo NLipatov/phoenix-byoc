@@ -355,6 +355,123 @@ When `vertex.enabled=true`, the workflow-engine chart deliberately omits
 Those two fields in `values.secrets.yaml` may remain empty. Other provider and
 Git credentials remain independent.
 
+## LLM providers through environment variables
+
+`secrets.agents.llmEnv` is a map of environment variables for the LLM
+provider. Put it in `values.secrets.yaml`. BYOC passes the map unchanged to the
+workflow-engine chart as `agentSecrets.llmEnv`. The chart stores each entry in
+the Workflow Engine Secret, and the engine gives it to sandboxed agents. BYOC
+has no provider logic. The default is an empty map.
+
+- A name matches `^[A-Za-z_][A-Za-z0-9_]*$`.
+- A value must be a quoted string, for example `SOME_FLAG: "true"`. BYOC
+  refuses an unquoted date, number, boolean or empty value before it renders
+  the chart; the error names the key, never the value. Blank strings (`""`)
+  are skipped.
+- The map needs a workflow-engine chart that supports `agentSecrets.llmEnv`.
+  Earlier charts ignore it.
+
+Use the standard variable names that Pi reads. These platforms are
+supported through `llmEnv`:
+
+| Platform | `llmEnv` entries | `models` id prefix |
+|---|---|---|
+| OpenAI API | `OPENAI_API_KEY` | `openai/` |
+| Google AI (Gemini) | `GEMINI_API_KEY` | `google/` |
+| AWS Bedrock (Claude), Bedrock API key | `CLAUDE_CODE_USE_BEDROCK: "1"`, `AWS_REGION`, `AWS_BEARER_TOKEN_BEDROCK` | `amazon-bedrock/` |
+| AWS Bedrock (Claude), static IAM keys | `CLAUDE_CODE_USE_BEDROCK: "1"`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, optional `AWS_SESSION_TOKEN` | `amazon-bedrock/` |
+| Google Vertex AI (Gemini), API key | `GOOGLE_CLOUD_API_KEY`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION` | `google-vertex/` |
+| Azure Foundry (GPT), API key | `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_BASE_URL` or `AZURE_OPENAI_RESOURCE_NAME`, optional `AZURE_OPENAI_API_VERSION` and `AZURE_OPENAI_DEPLOYMENT_NAME_MAP` | `azure/` |
+| Azure Foundry (Claude), API key | The gateway variables, with `LLM_GATEWAY_BASE_URL: "https://<resource>.services.ai.azure.com/anthropic"` and `LLM_GATEWAY_API: "anthropic-messages"`. Not tested yet. | `gateway/` |
+| Customer gateway (Portkey, LiteLLM, Kong and others) | The gateway variables below | `gateway/` |
+| OSS server (vLLM, TGI, Ollama on HTTPS) | The gateway variables below | `gateway/` |
+| Hosted OSS models in Pi | One of `GROQ_API_KEY`, `TOGETHER_API_KEY`, `FIREWORKS_API_KEY`, `HF_TOKEN`, `DEEPSEEK_API_KEY`, `MISTRAL_API_KEY`, `CEREBRAS_API_KEY`, `NVIDIA_API_KEY`, `XAI_API_KEY` | `<pi id>/`, for example `groq/` |
+| OpenRouter | `OPENROUTER_API_KEY` | `openrouter/` |
+| Vercel AI Gateway | `AI_GATEWAY_API_KEY` | `vercel-ai-gateway/` |
+| Cloudflare AI Gateway | `CLOUDFLARE_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_GATEWAY_ID` | `cloudflare-ai-gateway/` |
+
+The `models` id prefix picks the provider in every row, so no row needs
+`PHOENIX_LLM_PROVIDER`. That variable only sets the Pi provider for a model id
+that has no prefix. BYOC `models` ids always have one; the done-when judge's id
+does not (see the judge rule below).
+
+Bedrock through IRSA or EKS Pod Identity, and Gemini on Vertex AI through
+Workload Identity, need a sandbox identity. That is not available yet.
+
+Set each variable in one place only. Do not set a variable both in `llmEnv`
+and in a field such as `openaiApiKey`.
+
+### Customer gateway
+
+A gateway is a URL, a key and optional headers. The gateway picks the backend
+model provider. Pi uses the provider id `gateway` for it.
+
+| Variable | Required | Value |
+|---|---|---|
+| `LLM_GATEWAY_BASE_URL` | Yes | The gateway URL. Use HTTPS, or HTTP to loopback or to an in-cluster service host `<service>.<namespace>.svc` or `<service>.<namespace>.svc.cluster.local` (for example `http://portkey.llm.svc:8787/v1`). No user info in the URL. |
+| `LLM_GATEWAY_API_KEY` | Yes | The gateway key. It is a secret. |
+| `LLM_GATEWAY_API` | Yes | The wire API of the gateway endpoint: `openai-completions`, `openai-responses` or `anthropic-messages`. There is no default. |
+| `LLM_GATEWAY_HEADERS` | No | Extra headers, one `Name: value` per line. A value can be a whole `$NAME` reference to another variable. A value that starts with `!` is refused. |
+
+The base URL depends on the API. Example for Portkey:
+`https://api.portkey.ai/v1` for `openai-completions`, and
+`https://api.portkey.ai` (no `/v1`) for `anthropic-messages`.
+
+Example: Portkey with Claude behind it.
+
+```yaml
+# values.secrets.yaml
+secrets:
+  agents:
+    llmEnv:
+      LLM_GATEWAY_BASE_URL: "https://api.portkey.ai"
+      LLM_GATEWAY_API: "anthropic-messages"
+      LLM_GATEWAY_API_KEY: "CHANGE_ME_LLM_GATEWAY_API_KEY"
+      LLM_GATEWAY_HEADERS: "x-portkey-api-key: $LLM_GATEWAY_API_KEY\nx-portkey-provider: @bedrock-prod"
+```
+
+```yaml
+# values.yaml
+models:
+  - id: "gateway/us.anthropic.claude-sonnet-5-v1:0"
+    profile: standard
+```
+
+A model id in `models` is `gateway/<id the gateway accepts>`.
+
+### Rules
+
+- **Set `models`.** The default model list has `anthropic/...` ids. With a
+  gateway, set `models` with `gateway/...` ids. With another platform, use the
+  prefix from the first table. See [Allowed models](#allowed-models).
+- **Set `LLM_GATEWAY_API`.** A gateway does not work without it.
+- **Quote values.** Quote every value in YAML, for example
+  `LLM_GATEWAY_API: "openai-completions"` or
+  `AZURE_OPENAI_API_VERSION: "2024-10-21"`. BYOC refuses an unquoted date,
+  number, boolean or empty value with an error that names the key. The reason:
+  unquoted, YAML reads `2024-10-21` as a date (it would reach the agents as
+  `2024-10-21T00:00:00Z`), a number of 1,000,000 or more as `1e+06`, and `N`,
+  `Y`, `yes`, `no`, `on` and `off` as booleans. Quote a key with one of those
+  names too.
+- **No proxy, CA or Node variables.** `llmEnv` ignores `HTTP_PROXY`,
+  `HTTPS_PROXY`, `NO_PROXY`, `http_proxy`, `https_proxy`, `no_proxy`,
+  `NODE_EXTRA_CA_CERTS`, `NODE_OPTIONS` and `SSL_CERT_FILE`, because Node reads
+  them only at start. Set them in the image or in the pod environment.
+- **No Phoenix variables.** `llmEnv` ignores `PHOENIX_*` names, except
+  `PHOENIX_LLM_PROVIDER`.
+- **Changes apply to new steps.** A removed entry still applies to a step that
+  paused before the change and resumes in the same sandbox after it. New
+  steps use the new values.
+- **The judge uses Claude.** This applies to every row of the provider
+  table. The done-when judge uses a Claude model id without a prefix (Sonnet
+  5.5). It runs on the provider set by `PHOENIX_LLM_PROVIDER`, or else on the
+  provider the agents detect from the credentials. Only Anthropic, Claude on
+  Vertex, Bedrock, or a gateway that accepts that id can run it. With any
+  other provider, or with none, the run logs a `judge.error` event and still
+  completes.
+- **Allow egress.** Sandboxes need network access to the gateway host or the
+  provider endpoints. See [Prerequisites](prerequisites.md#network).
+
 ## Workflow execution limits
 
 The customer-facing workflow settings are under `services.workflowEngine` and

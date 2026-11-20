@@ -436,3 +436,5 @@ secrets:
     githubToken: ""
     openaiApiKey: ""
     geminiApiKey: ""
+    # LLM provider env variables, as NAME: "value". See docs/configuration.md.
+    llmEnv: {}
