@@ -279,10 +279,9 @@ services:
       tolerations: []
       podAnnotations: {}
     executionTimeout: 360m
-    agentSandboxIdleTTL: 6h
     sandboxCreateTimeoutSeconds: 300
     outputArchiveMaxBytes: "4294967296"
-    outputArchiveMaxFiles: "1000"
+    outputArchiveMaxFiles: "200000"
     outputArchiveMaxSingleFileBytes: "2147483648"
     outputArchiveMaxTotalFileBytes: "4294967296"
     persistence:

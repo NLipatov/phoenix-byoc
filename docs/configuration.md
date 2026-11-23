@@ -326,10 +326,9 @@ Changing `models` and re-running the install updates what Phoenix Web offers
 for new work. Agent versions that are already sealed keep the model they were
 sealed with; changing `models` does not change them.
 
-## Claude Code through Google Vertex AI
+## Agents through Google Vertex AI
 
-`vertex.enabled` optionally routes sandboxed Claude Code agents through Google
-Vertex AI. This mode is supported only on GKE with Workload Identity enabled.
+`vertex.enabled` routes sandboxed Pi agents through Google Vertex AI. This mode is supported only on GKE with Workload Identity enabled.
 It does not mount a Google service-account key.
 
 The customer configures the non-secret values under `vertex`:
@@ -341,8 +340,9 @@ The customer configures the non-secret values under `vertex`:
   the Kubernetes ServiceAccount;
 - `serviceAccount.create`: create and annotate the Kubernetes ServiceAccount,
   or reference one managed separately by the customer;
-- `models.*`: Vertex model identifiers available in the customer's Model
-  Garden.
+- `vertex.models.*` are legacy Claude CLI options, ignored by Pi. Use the
+  top-level `models` catalog for exact provider/model IDs offered by Web.
+  Existing sealed agent versions retain their selected model IDs.
 
 The Google Service Account needs `roles/aiplatform.user`. The customer must
 also grant `roles/iam.workloadIdentityUser` to
@@ -488,11 +488,15 @@ The customer-facing workflow settings are under `services.workflowEngine` and
 - `supervisor.enabled` enables the Phoenix Web callback, Redis handoff and
   supervisor sandbox resource class together; it is disabled by default to
   match the source `test` environment;
-- `agentSandboxIdleTTL` controls how long a successfully completed agent
-  sandbox remains available for runtime activation;
+- `services.workflowEngine.runRetention` now controls the shared lifetime of
+  completed runs and retained sandboxes. Cleanup remains disabled by default.
+  The old `agentSandboxIdleTTL` setting is ignored by this release; it can be
+  removed from existing values without enabling cleanup;
 - `outputArchiveMaxBytes`, `outputArchiveMaxFiles`,
   `outputArchiveMaxSingleFileBytes` and `outputArchiveMaxTotalFileBytes` bound
-  archives read from sandboxes.
+  archives read from sandboxes. The default file-count limit is now `200000`
+  for multi-stage Maestro output; byte limits are unchanged. An explicitly set
+  older value (such as `1000`) still overrides this default.
 
 These values are passed directly to the Phoenix Workflow Engine chart. They do
 not change node labels, placement policy or cluster capacity.
