@@ -237,7 +237,6 @@ opensandbox:
   clusterRoleName: {{ printf "phoenix-workflow-engine-opensandbox-%s" .Values.namespace | trunc 63 | trimSuffix "-" | quote }}
   endpoint: {{ printf "http://phoenix-workflow-engine-opensandbox.%s.svc.%s:8080" .Values.namespace .Values.clusterDomain | quote }}
   executionTimeout: {{ .Values.services.opensandbox.executionTimeout | quote }}
-  agentSandboxIdleTTL: {{ .Values.services.opensandbox.agentSandboxIdleTTL | quote }}
   outputArchiveMaxBytes: {{ .Values.services.opensandbox.outputArchiveMaxBytes | quote }}
   outputArchiveMaxFiles: {{ .Values.services.opensandbox.outputArchiveMaxFiles | quote }}
   outputArchiveMaxSingleFileBytes: {{ .Values.services.opensandbox.outputArchiveMaxSingleFileBytes | quote }}
