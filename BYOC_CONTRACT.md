@@ -15,8 +15,7 @@
   the Gateway credential-encryption master key and Engine pool-secret encryption key;
 - opt-in lifecycle management for workflow VMs in a customer-provided GCP
   project, network and image or snapshot;
-- BYOC database bootstrap orchestration, application database hooks and a temporary
-  recovery checkpoint for the workflow catalog upgrade;
+- BYOC database bootstrap orchestration, application database hooks and coordination for the workflow catalog upgrade;
 - render, preflight, install and verification scripts;
 - upgrade and rollback documentation.
 

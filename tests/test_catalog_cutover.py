@@ -24,38 +24,24 @@ class CatalogRetryTests(unittest.TestCase):
     def run_phases(self):
         return catalog.run_phases(self.cluster, "web/engine", *self.callbacks)
 
-    def test_verification_failure_retains_archives_and_retries_only_verification(self):
+    def test_verification_failure_retries_only_verification(self):
         verify = self.callbacks[-1]
         verify.side_effect = RuntimeError("run pin differs")
         with self.assertRaisesRegex(RuntimeError, "stopped at verify"):
             self.run_phases()
         self.assertEqual(self.state["data"]["phase"], "verify")
-        self.cluster.archives.assert_called_once_with("verify")
         self.cluster.gate.assert_not_called()
         verify.side_effect = None
         self.run_phases()
         verify.assert_called_with("run:pin")
         for callback in self.callbacks[:-1]:
             callback.assert_not_called()
-        self.cluster.archives.assert_called_with("cleanup")
         self.assertEqual(self.state["data"]["phase"], "remove-helper")
 
-    def test_cleanup_failure_only_retries_cleanup(self):
-        self.state["data"]["phase"] = "cleanup"
-        self.cluster.archives.side_effect = OSError()
-        with self.assertRaisesRegex(RuntimeError, "cleanup incomplete"):
-            self.run_phases()
-        self.assertEqual(self.state["data"]["phase"], "cleanup")
-        self.cluster.archives.side_effect = None
-        self.run_phases()
-        self.cluster.drain.assert_not_called()
-        for callback in self.callbacks:
-            callback.assert_not_called()
-
-    def test_incomplete_backup_cannot_start_schema_migration(self):
+    def test_schema_migration_requires_stopped_writers(self):
         self.state["data"]["phase"] = "web-schema"
-        self.cluster.archives.side_effect = RuntimeError("missing archive")
-        with self.assertRaisesRegex(RuntimeError, "missing archive"):
+        self.cluster.assert_stopped = Mock(side_effect=RuntimeError("writer restarted"))
+        with self.assertRaisesRegex(RuntimeError, "stopped at web-schema"):
             self.run_phases()
         self.callbacks[0].assert_not_called()
 
@@ -76,7 +62,6 @@ class CatalogRetryTests(unittest.TestCase):
         self.state["data"]["phase"] = "complete"
         self.assertFalse(self.run_phases())
         self.cluster.drain.assert_not_called()
-        self.cluster.archives.assert_not_called()
 
 
 class InstallerTests(unittest.TestCase):

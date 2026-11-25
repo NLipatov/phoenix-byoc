@@ -65,27 +65,17 @@ permanent. Jobs with a retained external lease or sandbox can require provider
 cleanup before the upgrade proceeds. New installs and subsequent upgrades skip
 the cancellation step.
 
-For installations with managed migrations the installer uses a temporary pod
-and a dynamically provisioned ReadWriteOnce PVC named `phoenix-catalog-cutover`.
-The default StorageClass must support provisioning in the workload's placement.
-The claim is sized from both database sizes. Its contents need the same access
-controls and storage encryption as the databases. Both database users must
-be able to read all data. Bundled and external PostgreSQL use their deployed
-service connections. When Web database hooks are disabled the customer retains
-migration ownership.
-
-With all writers stopped, the installer writes and reads back `/backup/web.dump`
-and `/backup/engine.dump` before running the Web schema hook. Engine upgrades
-next. Web application initialization runs once Engine is ready. The installer
-checks application readiness, the SDLC catalog and an existing historical pin
-when available. It then deletes the dumps and the maintenance pod. The empty
-PVC and the completion ConfigMap remain in the namespace.
+For installations with managed migrations, the installer runs the Web schema
+hook after all writers stop, upgrades Engine and restores Web initialization.
+It checks the SDLC catalog and a sampled historical run pin, then removes its
+maintenance pod. The namespace ConfigMap records the upgrade phase and, during
+drain, the run IDs used to verify external cleanup.
 
 On failure, inspect `kubectl -n "$namespace" get configmap phoenix-catalog-cutover -o jsonpath='{.data.phase}'`
-and rerun the same release with the same values. A verification failure retains
-both archives. A cleanup failure retries cleanup. After schema changes, recover
-forward. Rolling back binaries requires restoring the matching databases.
-The checkpoint was taken after cancellation and cannot resurrect cancelled runs.
+and rerun the same release with the same values. The installer recovers forward.
+Rolling back the binaries after schema changes requires a matching restore point
+from the installation's own backup policy. Customer-managed database hooks
+retain their existing migration ownership.
 
 ## Enable evaluations on an existing installation
 

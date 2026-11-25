@@ -5,7 +5,6 @@ import subprocess
 import time
 import uuid
 from contextlib import contextmanager
-from pathlib import Path
 
 NAME = "phoenix-catalog-cutover"
 WEB = "phoenix-web"
@@ -62,13 +61,11 @@ class Cluster:
         return obj
 
     def phase(self, value):
+        data = {"phase": value}
+        if value == "web-schema":
+            data["drained"] = None
         self.call(
-            "patch",
-            "configmap",
-            NAME,
-            "--type=merge",
-            "-p",
-            json.dumps({"data": {"phase": value}}),
+            "patch", "configmap", NAME, "--type=merge", "-p", json.dumps({"data": data})
         )
         print("Workflow catalog upgrade:", value, flush=True)
 
@@ -197,60 +194,6 @@ class Cluster:
         finally:
             self.call("delete", "pod", name, "--wait=false")
 
-    def database_size(self, web, image):
-        # Preflight with the same image, placement and identities as pg_dump.
-        name = NAME + "-size-" + uuid.uuid4().hex[:10]
-        template = web["spec"]["template"]["spec"]
-        container = self.pg_container(image)
-        container["command"] = [
-            "sh",
-            "-ec",
-            """
-        for url in "$DATABASE_URL" "$INTERNAL_DATABASE_URL"; do
-          pg_dump --schema-only --file=/dev/null "$url"
-          psql -XqAt -v ON_ERROR_STOP=1 "$url" -c "
-            select pg_database_size(current_database()) where not exists (
-              select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace
-              where n.nspname not like 'pg_%' and n.nspname <> 'information_schema'
-              and c.relkind in ('r','p','S') and not has_table_privilege(c.oid,'SELECT')
-            )"
-        done
-        """,
-        ]
-        self.create(
-            "Pod",
-            name,
-            {
-                "spec": {
-                    **self.placement(template),
-                    "restartPolicy": "Never",
-                    "automountServiceAccountToken": False,
-                    "containers": [container],
-                }
-            },
-        )
-        try:
-            deadline = time.monotonic() + 300
-            while time.monotonic() < deadline:
-                phase = self.get("pod", name)["status"].get("phase")
-                if phase == "Failed":
-                    raise RuntimeError(
-                        "PostgreSQL backup client failed its read-only connection/schema preflight"
-                    )
-                if phase == "Succeeded":
-                    break
-                time.sleep(1)
-            else:
-                raise RuntimeError("PostgreSQL backup preflight timed out")
-            sizes = self.call("logs", name).splitlines()
-            if len(sizes) != 2 or not all(v.isdecimal() for v in sizes):
-                raise RuntimeError(
-                    "The backup accounts require read access to both full databases"
-                )
-            return sum(map(int, sizes))
-        finally:
-            self.call("delete", "pod", name, "--wait=false")
-
     @staticmethod
     def placement(template):
         return {
@@ -274,18 +217,6 @@ class Cluster:
         }
 
     def helper(self, web, pg_image):
-        if not self.owned("pvc", NAME):
-            size = str(1 + (2 * self.database_size(web, pg_image) // (1024**3))) + "Gi"
-            self.create(
-                "PersistentVolumeClaim",
-                NAME,
-                {
-                    "spec": {
-                        "accessModes": ["ReadWriteOnce"],
-                        "resources": {"requests": {"storage": size}},
-                    }
-                },
-            )
         if not self.owned("pod", NAME):
             template = web["spec"]["template"]["spec"]
             app = next(c for c in template["containers"] if c["name"] == WEB)
@@ -302,7 +233,6 @@ class Cluster:
                 }
             ]
             postgres = self.pg_container(pg_image)
-            postgres["volumeMounts"] = [{"name": "backup", "mountPath": "/backup"}]
             self.create(
                 "Pod",
                 NAME,
@@ -311,12 +241,6 @@ class Cluster:
                         **self.placement(template),
                         "automountServiceAccountToken": False,
                         "restartPolicy": "Always",
-                        "volumes": [
-                            {
-                                "name": "backup",
-                                "persistentVolumeClaim": {"claimName": NAME},
-                            }
-                        ],
                         "containers": [
                             dict(ruby, name="rails", command=["sleep", "infinity"]),
                             dict(postgres, command=["sleep", "infinity"]),
@@ -341,7 +265,7 @@ class Cluster:
                 "--",
                 "flock",
                 "-n",
-                "/backup/.upgrade.lock",
+                "/tmp/.catalog-upgrade.lock",
                 "sh",
                 "-ec",
                 "echo locked; cat >/dev/null",
@@ -352,7 +276,7 @@ class Cluster:
         ) as lock:
             if lock.stdout.readline().strip() != "locked":
                 raise RuntimeError(
-                    "Another catalog upgrade holds the backup volume lock"
+                    "Another catalog upgrade holds the maintenance pod lock"
                 )
             self.lock_process = lock
             try:
@@ -391,14 +315,8 @@ class Cluster:
         self.gate(WEB, True)
         self.gate(API, True)
         self.scale_down(WEB_WRITERS)
-        cancelled = set(
-            self.exec(
-                "postgres",
-                "sh",
-                "-ec",
-                "if test -f /backup/drained; then cat /backup/drained; fi",
-            ).splitlines()
-        )
+        journal = self.owned("configmap", NAME)["data"]
+        cancelled = set(journal.get("drained", "").splitlines())
         deadline = time.monotonic() + 300
         while True:
             runs = self.sql("web", OPEN).splitlines()
@@ -407,12 +325,15 @@ class Cluster:
             if time.monotonic() >= deadline:
                 raise RuntimeError("Old Engine did not drain all open runs")
             cancelled.update(str(uuid.UUID(run)) for run in runs)
-            self.exec(
-                "postgres",
-                "sh",
-                "-ec",
-                "umask 077; cat > /backup/drained.tmp; mv /backup/drained.tmp /backup/drained",
-                data="\n".join(sorted(cancelled)) + "\n",
+            # Persist the IDs before cancellation so a retry can still check
+            # external executions after their runs have become terminal.
+            self.call(
+                "patch",
+                "configmap",
+                NAME,
+                "--type=merge",
+                "--patch-file=/dev/stdin",
+                data=json.dumps({"data": {"drained": "\n".join(sorted(cancelled))}}),
             )
             api = self.get("deployment", API)
             if api["spec"]["replicas"] == 0:
@@ -482,19 +403,6 @@ end
             raise RuntimeError(
                 "A run raced the drain; resume cancellation on the old Engine"
             )
-
-    def archives(self, operation):
-        script = Path(__file__).with_name("catalog-backup.sh").read_text()
-        self.exec(
-            "postgres",
-            "env",
-            "CATALOG_BACKUP_DIR=/backup",
-            "sh",
-            "-s",
-            "--",
-            operation,
-            data=script,
-        )
 
 
 def cutover(
@@ -571,12 +479,6 @@ def run_phases(cluster, identity, migrate_web, deploy_engine, deploy_web, verify
             "Resume the in-progress catalog upgrade with its original image pair"
         )
     phase = state["data"]["phase"]
-    if phase in ("web-schema", "engine", "web", "verify"):
-        cluster.archives("verify")
-
-    def backup():
-        cluster.assert_stopped()
-        cluster.archives("backup")
 
     def schema():
         cluster.assert_stopped()
@@ -616,26 +518,18 @@ def run_phases(cluster, identity, migrate_web, deploy_engine, deploy_web, verify
 
     phases = [
         ("drain", cluster.drain),
-        ("backup", backup),
         ("web-schema", schema),
         ("engine", engine),
         ("web", deploy_web),
         ("verify", check),
-        ("cleanup", lambda: cluster.archives("cleanup")),
     ]
     names = [name for name, task in phases] + ["remove-helper"]
     for i in range(names.index(phase), len(phases)):
         try:
             phases[i][1]()
         except Exception as error:
-            detail = (
-                "Upgrade verified; backup cleanup incomplete"
-                if names[i] == "cleanup"
-                else f"Catalog upgrade stopped at {names[i]}"
-            )
             raise RuntimeError(
-                f"{detail}. Retry the same release in {cluster.namespace}. "
-                f"Recovery files are on PVC {NAME} under /backup."
+                f"Catalog upgrade stopped at {names[i]}. Retry the same release in {cluster.namespace}."
             ) from error
         cluster.phase(names[i + 1])
     return True
