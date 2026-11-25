@@ -55,6 +55,38 @@ generates new supported `GENERATE_*` values and refreshes derived internal URLs.
 external `CHANGE_ME_*` fields stop preflight and are reported by path until the
 customer supplies them.
 
+## Upgrade to the Engine-owned workflow catalog
+
+On the first upgrade that moves workflow definitions into Engine, the ordinary
+installer coordinates Web and Engine in the selected namespace. It closes
+submissions, **cancels all open runs**, including queued runs and detached
+children, and checks for outstanding external executions. Cancellation is
+permanent. Jobs with a retained external lease or sandbox can require provider
+cleanup before the upgrade proceeds. New installs and subsequent upgrades skip
+the cancellation step.
+
+For installations with managed migrations the installer uses a temporary pod
+and a dynamically provisioned ReadWriteOnce PVC named `phoenix-catalog-cutover`.
+The default StorageClass must support provisioning in the workload's placement.
+The claim is sized from both database sizes. Its contents need the same access
+controls and storage encryption as the databases. Both database users must
+be able to read all data. Bundled and external PostgreSQL use their deployed
+service connections. When Web database hooks are disabled the customer retains
+migration ownership.
+
+With all writers stopped, the installer writes and reads back `/backup/web.dump`
+and `/backup/engine.dump` before running the Web schema hook. Engine upgrades
+next. Web application initialization runs once Engine is ready. The installer
+checks application readiness, the SDLC catalog and an existing historical pin
+when available. It then deletes the dumps and the maintenance pod. The empty
+PVC and the completion ConfigMap remain in the namespace.
+
+On failure, inspect `kubectl -n "$namespace" get configmap phoenix-catalog-cutover -o jsonpath='{.data.phase}'`
+and rerun the same release with the same values. A verification failure retains
+both archives. A cleanup failure retries cleanup. After schema changes, recover
+forward. Rolling back binaries requires restoring the matching databases.
+The checkpoint was taken after cancellation and cannot resurrect cancelled runs.
+
 ## Enable evaluations on an existing installation
 
 The eval defaults fix is a source change after `0.2.3`; use a release containing
